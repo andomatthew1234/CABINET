@@ -1,109 +1,98 @@
 @echo off
 setlocal enabledelayedexpansion
-color 0A
+title THE CABINET - CORE INITIALIZATION SYSTEM
 mode con: cols=90 lines=30
-cls
+color 0A
 
-echo ==========================================================================================
-echo  [SYSTEM_INIT] INITIALIZING THE CABINET AUTOMATED INSTALLER...
-echo ==========================================================================================
-echo.
+:: --- RETRO TERMINAL HEADER ---
+echo ==========================================================================
+echo   __  __  _   _   ___     ___    _    ___    _  _   _____  _____ 
+echo  ^|  \/  ^| ^| ^| ^| ^| ^| _ \   / __^|  /_\  ^| _ )  ^| ^|^| ^| ^|  ___^|^|_   _^|
+echo  ^| ^|\/^| ^| ^| ^|_^| ^| ^|   /  ^| (__  / _ \ ^| _ \  ^| __ ^| ^|  __^|   ^| ^|  
+echo  ^|_^|  ^|_^|  \___/  ^|_^|_\   \___^|/_/ \_\^|___/  ^|_^|^|_^| ^|_____^|  ^|_^|  
+echo                                                                      
+echo ==========================================================================
+echo [SYSTEM]: CORE INITIALIZATION MODULE V3.14
+echo [SYSTEM]: SECURITY LIMITERS BYPASSED. OVERCLOCK STACK READY.
+echo --------------------------------------------------------------------------
+timeout /t 2 >nul
 
-:: --------------------------------------------------------------------------------------------
-:: PHASE 1: HARDWARE & ENVIRONMENT VERIFICATION
-:: --------------------------------------------------------------------------------------------
-echo  [PHASE 1] VERIFYING PYTHON KERNEL ENVIRONMENT...
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo  [!_WARN] PYTHON NOT DETECTED. INITIALIZING WINGET OVERRIDE...
-    echo  [WINGET] FETCHING LATEST PYTHON CORE EXEC...
-    winget install --id Python.Python.3.14 --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
-    
-    :: Re-check environment path variable state after package insertion
-    refreshenv >nul 2>&1
-    python --version >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo  [FATAL] PYTHON CORE DEPLOYMENT FAILED. PLEASE INSTALL MANUALLY.
-        pause
-        exit /b
-    )
-) else (
-    echo  [SYSTEM] PYTHON RUNTIME DETECTION: OK()
+:: --- STEP 1: DETECT DESKTOP ENVIRONMENT ---
+echo [STATUS]: SCANNING DISK PATH MATRIX...
+set "DESKTOP_DIR="
+
+:: Check Local Desktop
+if exist "%USERPROFILE%\Desktop" (
+    set "DESKTOP_DIR=%USERPROFILE%\Desktop"
+    echo [OK]: LOCAL DESKTOP NODE DETECTED.
 )
 
-:: --------------------------------------------------------------------------------------------
-:: PHASE 2: PATHWAY RESOLUTION (Local Desktop vs OneDrive Desktop)
-:: --------------------------------------------------------------------------------------------
-echo.
-echo  [PHASE 2] SCANNING STORAGE TARGET BOUNDARIES...
-
-:: Query the Windows Registry directly to find the explicit active Desktop matrix location
-set "DESKTOP_PATH="
-for /f "tokens=2*" %%A in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v "Desktop" 2^>nul') do set "DESKTOP_PATH=%%B"
-
-:: Fallback matrices if the registry parsing pipeline encounters turbulence
-if not defined DESKTOP_PATH set "DESKTOP_PATH=%USERPROFILE%\OneDrive\Desktop"
-if not exist "!DESKTOP_PATH!" set "DESKTOP_PATH=%USERPROFILE%\Desktop"
-if not exist "!DESKTOP_PATH!" set "DESKTOP_PATH=%USERPROFILE%\OneDrive\Desktop"
-
-:: Strip explicit environment literal string prefixes if present
-set "DESKTOP_PATH=!DESKTOP_PATH:%%USERPROFILE%%=%USERPROFILE%!"
-
-echo  [SYSTEM] TARGET DESKTOP RECOGNIZED: !DESKTOP_PATH!
-set "TARGET_DIR=!DESKTOP_PATH!\CABINET"
-set "ZIP_FILE=%TEMP%\cabinet_source.zip"
-
-:: --------------------------------------------------------------------------------------------
-:: PHASE 3: SOURCE FETCH & DECOMPRESSION PIPELINE
-:: --------------------------------------------------------------------------------------------
-echo.
-echo  [PHASE 3] FETCHING ARSENAL FROM GITHUB CORE REPOSITORY...
-
-if exist "!TARGET_DIR!" (
-    echo  [UPGRADE] RESTRUCTURING EXISTENT SOURCE BLOCKS...
-    rmdir /s /q "!TARGET_DIR!"
+:: Check OneDrive Desktop Overrides
+if exist "%USERPROFILE%\OneDrive\Desktop" (
+    set "DESKTOP_DIR=%USERPROFILE%\OneDrive\Desktop"
+    echo [OK]: ONEDRIVE DESKTOP OVERRIDE ATTAINED.
 )
 
-echo  [NET] STREAMS ESTABLISHED. DOWNLOADING STACK MATRIX...
-powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://github.com/andomatthew1234/CABINET/archive/refs/heads/main.zip' -OutFile '%ZIP_FILE%'"
+:: Fallback Vector
+if "%DESKTOP_DIR%"=="" (
+    set "DESKTOP_DIR=%USERPROFILE%\OneDrive"
+    echo [WARN]: DESKTOP NOT FOUND. FALLING BACK TO ROOT VECTOR.
+)
+set "TARGET_FOLDER=%DESKTOP_DIR%\CABINET"
+timeout /t 1 >nul
 
-echo  [ZIP] EXTRACTING SOURCE STRUCTS TO DESTINATION DIRECTORY...
-powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%TEMP%\cabinet_temp' -Force"
-
-:: GitHub wraps zip files in a root directory name project-branch. We resolve that wrapper.
-for /d %%I in ("%TEMP%\cabinet_temp\*") do move "%%I" "!TARGET_DIR!" >nul
-del /f /q "%ZIP_FILE%" >nul
-rmdir /s /q "%TEMP%\cabinet_temp" >nul
-
-echo  [SYSTEM] MOUNTING CORE MODULES... OK()
-
-:: --------------------------------------------------------------------------------------------
-:: PHASE 4: DEPENDENCY INSTALLATION
-:: --------------------------------------------------------------------------------------------
-echo.
-echo  [PHASE 4] RESOLVING SOFTWARE DEPENDENCIES...
-cd /d "!TARGET_DIR!"
-echo  [PIP] COMPILING AND INJECTING PYGAME ASSETS...
+:: --- STEP 2: DEPENDENCY INJECTION ---
+echo --------------------------------------------------------------------------
+echo [STATUS]: PIPING PYTHON EXTENSION PACKAGES...
 python -m pip install --upgrade pip --quiet
+echo [STATUS]: FETCHING PYGAME ENGINE MATRIX...
 python -m pip install pygame-ce --quiet
+if %errorlevel% neq 0 (
+    python -m pip install pygame --quiet
+)
+echo [OK]: PYTHON ARCHITECTURE PRIMED.
+timeout /t 1 >nul
 
-:: --------------------------------------------------------------------------------------------
-:: PHASE 5: SHORTCUT COMPILATION & SYSTEM LAUNCH
-:: --------------------------------------------------------------------------------------------
-echo.
-echo  [PHASE 5] COMPILING WINDOWS SYSTEM SHORTCUT DEPLOYMENT...
-set "SCRIPT_PATH=!TARGET_DIR!\other\welcome.py"
-set "SHORTCUT_PATH=!DESKTOP_PATH!\THE CABINET.lnk"
+:: --- STEP 3: REPOSITORY EXTRACTION ---
+echo --------------------------------------------------------------------------
+echo [STATUS]: OPENING DOWNLINK STREAM TO GITHUB REPOSITORY...
+set "REPO_URL=https://github.com/andomatthew1234/CABINET/archive/refs/heads/main.zip"
+set "ZIP_FILE=%TEMP%\cabinet_source.zip"
+set "EXTRACT_TEMP=%TEMP%\cabinet_extract"
 
-powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%SHORTCUT_PATH%'); $Shortcut.TargetPath = 'python.exe'; $Shortcut.Arguments = '\"%SCRIPT_PATH%\"'; $Shortcut.WorkingDirectory = '!TARGET_DIR!'; $Shortcut.IconLocation = 'shell32.dll,24'; $Shortcut.Save()"
+:: PowerShell Payload: Download & Silent Extract
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%REPO_URL%' -OutFile '%ZIP_FILE%'"
+echo [OK]: INBOUND PAYLOAD CACHED. EXTRACTING SPATIAL FILE TREE...
 
-echo  [SYSTEM] THE CABINET DEPLOYMENT SUCCESSFUL.
-echo  ==========================================================================================
-echo   INITIALIZATION COMPLETE. TRANSFERRING CONTROL MATRIX TO OTHER/WELCOME.PY...
-echo  ==========================================================================================
-echo.
-timeout /t 3 >nul
+if exist "%EXTRACT_TEMP%" rmdir /s /q "%EXTRACT_TEMP%"
+powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%EXTRACT_TEMP%' -Force"
 
-:: Boot up the beast
-python "!SCRIPT_PATH!"
+:: Secure directory deployment
+if exist "%TARGET_FOLDER%" rmdir /s /q "%TARGET_FOLDER%"
+xcopy "%EXTRACT_TEMP%\CABINET-main\*" "%TARGET_FOLDER%\" /E /I /Y /Q >nul
+
+:: Cleanup caches
+del "%ZIP_FILE%"
+rmdir /s /q "%EXTRACT_TEMP%"
+echo [OK]: FILE MATRIX SPLICED TO %TARGET_FOLDER%
+timeout /t 1 >nul
+
+:: --- STEP 4: SHORTCUT CREATION ---
+echo --------------------------------------------------------------------------
+echo [STATUS]: COMPILING DESKTOP APPARATUS ENTRY POINT...
+set "SCRIPT_PATH=%TARGET_FOLDER%\other\welcome.py"
+set "SHORTCUT_PATH=%DESKTOP_DIR%\THE CABINET.lnk"
+
+powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%SHORTCUT_PATH%'); $Shortcut.TargetPath = 'python.exe'; $Shortcut.Arguments = '\"%SCRIPT_PATH%\"'; $Shortcut.WorkingDirectory = '%TARGET_FOLDER%'; $Shortcut.Description = 'Ignite The Cabinet'; $Shortcut.Save()"
+echo [OK]: ICON INTERACTIVE LINK EXTRACTED TO DESKTOP node.
+timeout /t 1 >nul
+
+:: --- STEP 5: SYSTEM WAKE (FIXED LAUNCH PIPELINE) ---
+echo --------------------------------------------------------------------------
+echo [SYSTEM]: MANDATORY PROTOCOLS COMPLETE.
+echo [SYSTEM]: IGNITING THE ENGINE...
+timeout /t 2 >nul
+
+:: Launch using absolute paths inside a detached window instance to prevent crash
+start /d "%TARGET_FOLDER%" python "%TARGET_FOLDER%\other\welcome.py"
 exit

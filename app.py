@@ -24,11 +24,13 @@ TEXT_MAIN = (255, 255, 255)
 TEXT_MUTED = (150, 150, 180)
 NEON_CYAN = (0, 240, 255)
 NEON_PINK = (255, 0, 127)
+NEON_GREEN = (0, 255, 100)
 
 # Fonts
 FONT_BEAST = pygame.font.SysFont("Courier New", 65, bold=True, italic=True)
 FONT_SUB = pygame.font.SysFont("Arial", 20, bold=True)
 FONT_BODY = pygame.font.SysFont("Arial", 18)
+FONT_BTN = pygame.font.SysFont("Courier New", 16, bold=True)
 
 # Audio Path Helper
 def play_sound(filename, loop=0, volume=1.0):
@@ -59,6 +61,9 @@ class ArcadeLauncher:
         
         # Neon Racer effect specific elements
         self.racer_cars = [{"lane": i, "y": random.randint(0, 90), "speed": random.uniform(1.5, 3.5), "color": random.choice([(255,0,0), (0,255,0), (255,255,0)])} for i in range(4)]
+        
+        # Update Button Hover Binary Drops
+        self.update_drops = [{"x": random.randint(5, 195), "y": random.randint(-20, 0), "speed": random.uniform(1, 3), "char": random.choice(["0", "1"])} for _ in range(12)]
         
         # Start background menu track
         play_sound("menu.mp3", loop=-1, volume=0.5)
@@ -138,7 +143,12 @@ class ArcadeLauncher:
         global screen
         
         try:
-            module_name = f"games.{game_id}.game"
+            # Handle standard games module routing vs standalone other folder dependencies
+            if game_id == "update":
+                module_name = "other.update"
+            else:
+                module_name = f"games.{game_id}.game"
+                
             if module_name in sys.modules:
                 game_module = importlib.reload(sys.modules[module_name])
             else:
@@ -212,11 +222,9 @@ class ArcadeLauncher:
         t = self.animation_ticks
         title_str = "THE CABINET"
         
-        # Calculate dynamic floating and pulsing effects
         pulse = math.sin(t * 0.05) * 4
         float_y = math.sin(t * 0.08) * 5
         
-        # Render chromatic layers
         title_red = FONT_BEAST.render(title_str, True, (255, 0, 50))
         title_blue = FONT_BEAST.render(title_str, True, (0, 200, 255))
         title_main = FONT_BEAST.render(title_str, True, (255, 255, 255))
@@ -224,7 +232,6 @@ class ArcadeLauncher:
         base_x = WIDTH // 2 - title_main.get_width() // 2
         base_y = 20 + float_y
         
-        # Blit layers with separation for that glitchy CRT/Hologram pop
         screen.blit(title_red, (base_x - 3 + pulse, base_y))
         screen.blit(title_blue, (base_x + 3 - pulse, base_y))
         screen.blit(title_main, (base_x, base_y))
@@ -244,6 +251,7 @@ class ArcadeLauncher:
         card_height = 90
         gap = 15
         
+        # Lock target viewport constraint bound matrices cleanly
         self.target_scroll_y = -max(0, (self.selected_index - 3) * (card_height + gap))
         self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.15 
 
@@ -299,10 +307,45 @@ class ArcadeLauncher:
             right_offset = 110 if ("racer" in game["id"] or "neon" in game["id"]) else 30
             screen.blit(score_surf, (current_x + current_w - score_surf.get_width() - right_offset, current_y + (current_h // 2) - (score_surf.get_height() // 2)))
 
+        # --- SYSTEM UPDATE BUTTON MATRIX ---
+        btn_base_w, btn_base_h = 220, 36
+        btn_base_x = WIDTH // 2 - btn_base_w // 2
+        btn_base_y = 598
+        
+        # Test mouse overlap for button hover transitions
+        btn_hover = pygame.Rect(btn_base_x, btn_base_y, btn_base_w, btn_base_h).collidepoint(mx, my)
+        
+        if btn_hover:
+            btn_base_w += 14
+            btn_base_h += 6
+            btn_base_x -= 7
+            btn_base_y -= 3
+            
+        btn_rect = pygame.Rect(btn_base_x, btn_base_y, btn_base_w, btn_base_h)
+        pygame.draw.rect(screen, (20, 20, 35) if not btn_hover else (10, 40, 30), btn_rect, border_radius=6)
+        pygame.draw.rect(screen, NEON_CYAN if not btn_hover else NEON_GREEN, btn_rect, width=2, border_radius=6)
+        
+        # If hovered, draw internal glowing binary stream effect
+        if btn_hover:
+            btn_clip_surf = pygame.Surface((btn_base_w - 4, btn_base_h - 4))
+            btn_clip_surf.fill((10, 40, 30))
+            for drop in self.update_drops:
+                drop["y"] += drop["speed"]
+                if drop["y"] > btn_base_h - 4:
+                    drop["y"] = -10
+                    drop["speed"] = random.uniform(1, 3)
+                drop_surf = FONT_BTN.render(drop["char"], True, (0, 200, 80))
+                # Scale mouse drop coordinate vectors to clip bounding box
+                btn_clip_surf.blit(drop_surf, (int(drop["x"] % (btn_base_w - 10)), int(drop["y"])))
+            screen.blit(btn_clip_surf, (btn_base_x + 2, btn_base_y + 2))
+
+        btn_txt_color = NEON_CYAN if not btn_hover else TEXT_MAIN
+        btn_surf = FONT_BTN.render("[ SYSTEM UPDATE ]", True, btn_txt_color)
+        screen.blit(btn_surf, (WIDTH // 2 - btn_surf.get_width() // 2, btn_base_y + (btn_base_h // 2) - (btn_surf.get_height() // 2)))
+
     def run(self):
         running = True
         while running:
-            # Advance animation ticks even when not interacting
             self.animation_ticks += 1
             self.draw()
             
@@ -313,6 +356,13 @@ class ArcadeLauncher:
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1: 
                         mx, my = pygame.mouse.get_pos()
+                        
+                        # Check System Update Button Trigger Point
+                        btn_base_w, btn_base_h = 220, 36
+                        if pygame.Rect(WIDTH // 2 - btn_base_w // 2, 598, btn_base_w, btn_base_h).collidepoint(mx, my):
+                            self.transition_out_and_launch("update")
+                            continue
+
                         base_start_y = 165
                         card_height = 90
                         gap = 15
