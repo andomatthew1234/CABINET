@@ -79,7 +79,7 @@ timeout /t 1 >nul
 
 :: --- STEP 4: SHORTCUT CREATION ---
 echo --------------------------------------------------------------------------
-echo [STATUS]: COMPILING DESKTOP APPARATUS ENTRY POINT...
+echo [STATUS]: C
 set "SCRIPT_PATH=%TARGET_FOLDER%\other\welcome.py"
 set "SHORTCUT_PATH=%DESKTOP_DIR%\THE CABINET.lnk"
 

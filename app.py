@@ -5,6 +5,7 @@ import importlib
 import pygame
 import random
 import math
+import subprocess
 
 # Initialize Pygame and Mixer
 pygame.init()
@@ -98,7 +99,7 @@ class ArcadeLauncher:
                     print(f"Error loading game '{folder}': {e}")
 
     def transition_out_and_launch(self, game_id):
-        """Handles the smooth audio/visual fade out before passing control to the game."""
+        """Handles the smooth audio/visual fade out before passing control to the game or updater."""
         pygame.mixer.music.fadeout(800)
         play_sound("launch.mp3")
         
@@ -115,7 +116,15 @@ class ArcadeLauncher:
             clock.tick(60)
             
         pygame.time.wait(200) 
-        self.launch_game(game_id)
+        
+        # FIXED: Special handoff mapping for independent updater execution tree
+        if game_id == "update":
+            pygame.quit()
+            update_script = os.path.join(os.path.dirname(__file__), 'other', 'update.py')
+            subprocess.Popen([sys.executable, update_script])
+            sys.exit()
+        else:
+            self.launch_game(game_id)
 
     def transition_out_and_quit(self):
         """Fades out the screen and audio before cleanly exiting the app."""
@@ -143,12 +152,7 @@ class ArcadeLauncher:
         global screen
         
         try:
-            # Handle standard games module routing vs standalone other folder dependencies
-            if game_id == "update":
-                module_name = "other.update"
-            else:
-                module_name = f"games.{game_id}.game"
-                
+            module_name = f"games.{game_id}.game"
             if module_name in sys.modules:
                 game_module = importlib.reload(sys.modules[module_name])
             else:
@@ -251,7 +255,6 @@ class ArcadeLauncher:
         card_height = 90
         gap = 15
         
-        # Lock target viewport constraint bound matrices cleanly
         self.target_scroll_y = -max(0, (self.selected_index - 3) * (card_height + gap))
         self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.15 
 
@@ -312,7 +315,6 @@ class ArcadeLauncher:
         btn_base_x = WIDTH // 2 - btn_base_w // 2
         btn_base_y = 598
         
-        # Test mouse overlap for button hover transitions
         btn_hover = pygame.Rect(btn_base_x, btn_base_y, btn_base_w, btn_base_h).collidepoint(mx, my)
         
         if btn_hover:
@@ -325,7 +327,6 @@ class ArcadeLauncher:
         pygame.draw.rect(screen, (20, 20, 35) if not btn_hover else (10, 40, 30), btn_rect, border_radius=6)
         pygame.draw.rect(screen, NEON_CYAN if not btn_hover else NEON_GREEN, btn_rect, width=2, border_radius=6)
         
-        # If hovered, draw internal glowing binary stream effect
         if btn_hover:
             btn_clip_surf = pygame.Surface((btn_base_w - 4, btn_base_h - 4))
             btn_clip_surf.fill((10, 40, 30))
@@ -335,7 +336,6 @@ class ArcadeLauncher:
                     drop["y"] = -10
                     drop["speed"] = random.uniform(1, 3)
                 drop_surf = FONT_BTN.render(drop["char"], True, (0, 200, 80))
-                # Scale mouse drop coordinate vectors to clip bounding box
                 btn_clip_surf.blit(drop_surf, (int(drop["x"] % (btn_base_w - 10)), int(drop["y"])))
             screen.blit(btn_clip_surf, (btn_base_x + 2, btn_base_y + 2))
 
