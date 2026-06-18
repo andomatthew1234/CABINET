@@ -1,0 +1,14 @@
+{
+    "title": "Pong",
+    "description": "Classic high-speed paddle action against a dynamic AI.",
+    "high_score": 27,
+    "high_scores": {
+        "BitGame": 27,
+        "Classic": 27,
+        "Snowball": 27,
+        "XDistopia": 27,
+        "Time Attack": 27,
+        "Acceleration": 27
+    },
+    "gpu_stress_unlocked": true
+}
