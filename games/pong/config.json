@@ -3,7 +3,7 @@
     "description": "Classic high-speed paddle action against a dynamic AI.",
     "high_score": 27,
     "high_scores": {
-        "BitGame": 0,
+        "BitGame": 1,
         "Classic": 0,
         "Snowball": 0,
         "XDistopia": 0,
