@@ -3,12 +3,12 @@
     "description": "Classic high-speed paddle action against a dynamic AI.",
     "high_score": 27,
     "high_scores": {
-        "BitGame": 27,
-        "Classic": 27,
-        "Snowball": 27,
-        "XDistopia": 27,
-        "Time Attack": 27,
-        "Acceleration": 27
+        "BitGame": 0,
+        "Classic": 0,
+        "Snowball": 0,
+        "XDistopia": 0,
+        "Time Attack": 0,
+        "Acceleration": 0
     },
     "gpu_stress_unlocked": true
 }

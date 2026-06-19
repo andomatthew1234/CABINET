@@ -60,9 +60,6 @@ class ArcadeLauncher:
         self.target_scroll_y = 0
         self.animation_ticks = 0
         
-        # Neon Racer effect specific elements
-        self.racer_cars = [{"lane": i, "y": random.randint(0, 90), "speed": random.uniform(1.5, 3.5), "color": random.choice([(255,0,0), (0,255,0), (255,255,0)])} for i in range(4)]
-        
         # Update Button Hover Binary Drops
         self.update_drops = [{"x": random.randint(5, 195), "y": random.randint(-20, 0), "speed": random.uniform(1, 3), "char": random.choice(["0", "1"])} for _ in range(12)]
         
@@ -117,7 +114,6 @@ class ArcadeLauncher:
             
         pygame.time.wait(200) 
         
-        # FIXED: Special handoff mapping for independent updater execution tree
         if game_id == "update":
             pygame.quit()
             update_script = os.path.join(os.path.dirname(__file__), 'other', 'update.py')
@@ -168,32 +164,71 @@ class ArcadeLauncher:
         self.load_games()
         play_sound("menu.mp3", loop=-1, volume=0.5)
 
-    def draw_special_effects(self, game_id, rect):
+    def draw_special_effects(self, game_identifier, rect):
         """Renders specific custom container animations based on the game profile."""
         self.animation_ticks += 1
         t = self.animation_ticks
 
-        if "pong" in game_id:
+        if "pong" in game_identifier:
             pass 
 
-        elif "racer" in game_id or "neon" in game_id:
-            lane_w = 12
-            start_x = rect.right - 80
-            pygame.draw.rect(screen, (10, 10, 15), (start_x, rect.y + 5, lane_w * 4 + 8, rect.h - 10), border_radius=4)
-            for l in range(1, 4):
-                lx = start_x + 4 + (l * lane_w)
-                for ly in range(rect.y + 5, rect.bottom - 5, 12):
-                    pygame.draw.line(screen, (150, 150, 150), (lx, ly), (lx, ly + 6), 1)
-            for car in self.racer_cars:
-                car["y"] += car["speed"]
-                if car["y"] > rect.h - 18:
-                    car["y"] = 0
-                    car["speed"] = random.uniform(1.5, 3.5)
-                cx = start_x + 6 + (car["lane"] * lane_w)
-                cy = rect.y + 5 + car["y"]
-                pygame.draw.rect(screen, car["color"], (cx, cy, 8, 12), border_radius=2)
+        # FIXED: Added "racing" to the check to match your folder name
+        elif "racer" in game_identifier or "neon" in game_identifier or "racing" in game_identifier:
+            screen.set_clip(rect)
+            
+            road_w = 50
+            road_x = rect.right - road_w - 20
+            
+            speed = 6
+            dash_len = 15
+            gap_len = 15
+            cycle = dash_len + gap_len
+            offset = (t * speed) % cycle
+            center_line_x = road_x + (road_w // 2)
+            
+            for y in range(rect.top - cycle, rect.bottom, cycle):
+                pygame.draw.rect(screen, (255, 255, 255), (center_line_x - 1, y + offset, 2, dash_len))
+                
+            car_w, car_h = 16, 28
+            car_x = center_line_x - (car_w // 2)
+            car_y = rect.top + (rect.height // 2) + 5
+            
+            light_surf = pygame.Surface((car_w + 40, 40), pygame.SRCALPHA)
+            pygame.draw.polygon(light_surf, (255, 255, 150, 60), [(20 + 2, 40), (0, 0), (15, 0)])
+            pygame.draw.polygon(light_surf, (255, 255, 150, 60), [(20 + car_w - 2, 40), (25 + car_w, 0), (40 + car_w, 0)])
+            screen.blit(light_surf, (car_x - 20, car_y - 40))
+            
+            pygame.draw.rect(screen, (200, 30, 60), (car_x, car_y, car_w, car_h), border_radius=3)
+            
+            pygame.draw.rect(screen, (255, 255, 255), (car_x + 2, car_y - 2, 4, 3))
+            pygame.draw.rect(screen, (255, 255, 255), (car_x + car_w - 6, car_y - 2, 4, 3))
+            
+            pygame.draw.rect(screen, (255, 0, 0), (car_x + 2, car_y + car_h - 2, 4, 3))
+            pygame.draw.rect(screen, (255, 0, 0), (car_x + car_w - 6, car_y + car_h - 2, 4, 3))
+            
+            screen.set_clip(None)
 
-        elif "snake" in game_id:
+        elif "fighter" in game_identifier or "street" in game_identifier:
+            loop_t = t % 60
+            progress = loop_t / 30.0 
+            
+            if progress <= 1.0:
+                p1_x = rect.left + (rect.w * progress)
+                pygame.draw.circle(screen, (0, 200, 255), (int(p1_x), rect.top), 6)
+                pygame.draw.circle(screen, (255, 255, 255), (int(p1_x), rect.top), 3)
+                
+                p2_x = rect.right - (rect.w * progress)
+                pygame.draw.circle(screen, (255, 100, 0), (int(p2_x), rect.bottom), 6)
+                pygame.draw.circle(screen, (255, 255, 255), (int(p2_x), rect.bottom), 3)
+            else:
+                explosion_rad = int(max(0, (2.0 - progress) * 15))
+                if explosion_rad > 0:
+                    pygame.draw.circle(screen, (255, 255, 255), (rect.right, rect.top), explosion_rad)
+                    pygame.draw.circle(screen, (255, 200, 0), (rect.right, rect.top), int(explosion_rad * 0.7))
+                    pygame.draw.circle(screen, (255, 255, 255), (rect.left, rect.bottom), explosion_rad)
+                    pygame.draw.circle(screen, (255, 200, 0), (rect.left, rect.bottom), int(explosion_rad * 0.7))
+
+        elif "snake" in game_identifier:
             perimeter = (rect.w * 2) + (rect.h * 2)
             s_pos = (t * 4) % perimeter
             def get_perimeter_pt(p):
@@ -209,10 +244,10 @@ class ArcadeLauncher:
                 pt = get_perimeter_pt((s_pos - (seg * 12)) % perimeter)
                 pygame.draw.rect(screen, (0, 255, 100), (pt[0] - 4, pt[1] - 4, 8, 8), border_radius=2)
 
-        elif "tetris" in game_id:
+        elif "tetris" in game_identifier:
             pass
 
-        elif "sort" in game_id or "water" in game_id:
+        elif "sort" in game_identifier or "water" in game_identifier:
             for thick in range(3, 0, -1):
                 hue = (t * 3 + thick * 20) % 360
                 color = pygame.Color(0)
@@ -266,6 +301,8 @@ class ArcadeLauncher:
             mouse_hover = pygame.Rect(50, y_pos, WIDTH - 100, card_height).collidepoint(mx, my)
             is_focused = (i == self.selected_index) or mouse_hover
             
+            game_identifier = (game["id"] + " " + game["title"]).lower()
+            
             current_w = WIDTH - 100
             current_h = card_height
             current_x = 50
@@ -277,25 +314,32 @@ class ArcadeLauncher:
                 current_x -= 10
                 current_y -= 5
 
-            if is_focused and "tetris" in game["id"]:
-                shift_x = math.sin(self.animation_ticks * 0.1) * 12
-                current_x += shift_x
+            if is_focused and "tetris" in game_identifier:
+                current_x += math.sin(self.animation_ticks * 0.1) * 12
 
-            if is_focused and "pong" in game["id"]:
+            if is_focused and "pong" in game_identifier:
                 current_x += random.randint(-3, 3)
                 current_y += random.randint(-3, 3)
+                
+            if is_focused and ("fighter" in game_identifier or "street" in game_identifier):
+                current_x += random.randint(-2, 2)
 
             card_rect = pygame.Rect(current_x, current_y, current_w, current_h)
             
             if card_rect.bottom < 145 or card_rect.top > 575:
                 continue
 
-            bg_color = CARD_SELECTED if is_focused else CARD_BG
+            # FIXED: Added "racing" here too so the background goes dark
+            if is_focused and ("racer" in game_identifier or "neon" in game_identifier or "racing" in game_identifier):
+                bg_color = (8, 8, 12) 
+            else:
+                bg_color = CARD_SELECTED if is_focused else CARD_BG
+
             pygame.draw.rect(screen, bg_color, card_rect, border_radius=8)
             
             if is_focused:
                 pygame.draw.rect(screen, NEON_CYAN, card_rect, width=2, border_radius=8)
-                self.draw_special_effects(game["id"], card_rect)
+                self.draw_special_effects(game_identifier, card_rect)
             
             color_title = NEON_CYAN if is_focused else TEXT_MAIN
             title_surf = FONT_SUB.render(game["title"], True, color_title)
@@ -307,7 +351,7 @@ class ArcadeLauncher:
             score_text = f"HI-SCORE: {game['high_score']}"
             score_surf = FONT_SUB.render(score_text, True, NEON_PINK if is_focused else TEXT_MUTED)
             
-            right_offset = 110 if ("racer" in game["id"] or "neon" in game["id"]) else 30
+            right_offset = 30
             screen.blit(score_surf, (current_x + current_w - score_surf.get_width() - right_offset, current_y + (current_h // 2) - (score_surf.get_height() // 2)))
 
         # --- SYSTEM UPDATE BUTTON MATRIX ---

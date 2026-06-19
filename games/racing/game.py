@@ -102,7 +102,7 @@ def main(screen):
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     play_sound("exit.mp3")
-                    pygame.time.wait(200) # Give exit.mp3 a fraction of a second to play
+                    pygame.time.wait(200) 
                     running = False
                 if event.key == pygame.K_n and not game_over:
                     night_mode = not night_mode
@@ -140,10 +140,14 @@ def main(screen):
                 oil_timer -= 1
                 if oil_timer <= 0: traction = 1.0
             
+            # WASD Speed Modifiers
             current_scroll_speed = scroll_speed
             if boost_timer > 0:
-                boost_timer -= 1
                 current_scroll_speed = scroll_speed * 2.5 
+            elif keys[pygame.K_UP] or keys[pygame.K_w]:
+                current_scroll_speed = scroll_speed * 1.5
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                current_scroll_speed = scroll_speed * 0.5
 
             # Speed Scaling
             scroll_speed += 0.02 
@@ -152,9 +156,15 @@ def main(screen):
             lines_y += current_scroll_speed
             if lines_y >= 60: lines_y -= 60
 
-            # Enemy Spawning (With targeting to prevent middle-riding exploits)
+            # Enemy Spawning (With anti-wall and anti-cheat targeting)
             spawn_timer -= 1
             if spawn_timer <= 0:
+                # Track occupied upper lanes to prevent impossible walls
+                upper_lanes = set()
+                for e in enemies:
+                    if e["rect"].y < 250:
+                        upper_lanes.add(int((e["rect"].centerx - road_x) // lane_width))
+
                 # 30% chance to target the lane the player is currently in or nearest to
                 if random.random() < 0.3:
                     target_lane = int((player_x + car_w/2 - road_x) // lane_width)
@@ -162,7 +172,15 @@ def main(screen):
                 else:
                     lane = random.randint(0, 3)
 
-                ex = road_x + (lane * lane_width) + (lane_width // 2) - (car_w // 2)
+                # Impossible Wall Prevention: If 3 lanes are blocked, don't spawn in the 4th
+                if len(upper_lanes) >= 3 and lane not in upper_lanes:
+                    valid_lanes = list(upper_lanes)
+                    if valid_lanes:
+                        lane = random.choice(valid_lanes) # Stack behind an existing car
+
+                # Anti-Cheat: Random horizontal offset within the lane
+                lane_offset = random.randint(5, lane_width - car_w - 5)
+                ex = road_x + (lane * lane_width) + lane_offset
                 ey = -car_h
                 
                 # Check to ensure we don't spawn a car inside another car
@@ -270,7 +288,7 @@ def main(screen):
             screen.blit(overlay, (0,0))
 
         # UI
-        screen.blit(small_font.render(f"SPEED: {int(scroll_speed * 10 * (2.5 if boost_timer > 0 else 1))} MPH", True, (255, 255, 255)), (20, 20))
+        screen.blit(small_font.render(f"SPEED: {int(current_scroll_speed * 10)} MPH", True, (255, 255, 255)), (20, 20))
         screen.blit(font.render(f"SCORE: {score}", True, (0, 255, 255)), (20, 50))
         screen.blit(small_font.render(f"HIGH: {high_score}", True, (150, 150, 150)), (20, 90))
         

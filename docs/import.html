@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Import Games - THE CABINET</title>
+
+<style>
+body{
+    margin:0;
+    background:#080808;
+    color:white;
+    font-family:Segoe UI,sans-serif;
+}
+
+header{
+    text-align:center;
+    padding:50px;
+}
+
+h1{
+    color:#00ffcc;
+    text-shadow:0 0 15px #00ffcc;
+}
+
+.container{
+    max-width:1100px;
+    margin:auto;
+    padding:20px;
+}
+
+.card{
+    background:#121212;
+    border-radius:15px;
+    padding:30px;
+    margin-bottom:25px;
+}
+
+pre{
+    background:#000;
+    padding:20px;
+    overflow:auto;
+    border-radius:10px;
+    border:1px solid #333;
+    color:#00ffcc;
+}
+
+code{
+    color:#00ffcc;
+}
+
+.back{
+    text-align:center;
+    margin:50px;
+}
+
+.btn{
+    padding:15px 25px;
+    background:#00ffcc;
+    color:black;
+    text-decoration:none;
+    border-radius:10px;
+    font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<header>
+<h1>⏬ Import Custom Games</h1>
+<p>Add your own pygame games into THE CABINET.</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+
+<h2>1. Create Your Game Folder</h2>
+
+<p>
+Drop your game folder into the <code>/games/</code> directory.
+</p>
+
+<pre>
+/
+├── app.py
+├── install.bat
+├── LICENCES.MD
+├── readme.md
+├── games/
+│   ├── your_game_folder_here/
+│   │   ├── game.py
+│   │   └── config.json
+│   └── ...
+├── music/
+└── other/
+</pre>
+
+</div>
+
+<div class="card">
+
+<h2>2. Create game.py</h2>
+
+<p>
+This is your actual game.
+</p>
+
+<p>
+THE CABINET expects a pygame-ce project.
+</p>
+
+<pre>
+import pygame
+
+pygame.init()
+
+screen = pygame.display.set_mode((800,600))
+
+running = True
+
+while running:
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    screen.fill((20,20,20))
+    pygame.display.flip()
+
+pygame.quit()
+</pre>
+
+</div>
+
+<div class="card">
+
+<h2>3. Create config.json</h2>
+
+<p>
+The launcher uses this file to display information about your game.
+</p>
+
+<pre>
+{
+    "title": "game_name",
+    "description": "game_description",
+    "high_score": 0
+}
+</pre>
+
+<p>
+The <code>high_score</code> field is optional but recommended.
+</p>
+
+</div>
+
+<div class="card">
+
+<h2>4. Launch THE CABINET</h2>
+
+<p>
+THE CABINET automatically scans the games folder and imports valid games into the launcher.
+</p>
+
+<p>
+No coding changes to THE CABINET itself are required.
+</p>
+
+</div>
+
+</div>
+
+<div class="back">
+<a class="btn" href="index.html">← Back Home</a>
+</div>
+
+</body>
+</html>

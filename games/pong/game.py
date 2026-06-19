@@ -92,10 +92,12 @@ def main(screen):
 
     running = True
     game_over = False
+    win_message = ""
 
     def reset_game(active_mode):
-        nonlocal rally, max_rally, ball_speed_x, ball_speed_y, game_over, particles, impact_effects, time_left, snowball_active, shake_timer, flashbang_timer, flashbang_alpha
+        nonlocal rally, max_rally, ball_speed_x, ball_speed_y, game_over, particles, impact_effects, time_left, snowball_active, shake_timer, flashbang_timer, flashbang_alpha, win_message
         game_over = False
+        win_message = ""
         rally = 0
         max_rally = 0
         shake_timer = 0
@@ -159,7 +161,6 @@ def main(screen):
                 sys.exit()
             
             if event.type == pygame.KEYDOWN:
-                # Cheat Code Check: Alt + Shift + A
                 mods = pygame.key.get_mods()
                 if (mods & pygame.KMOD_ALT) and (mods & pygame.KMOD_SHIFT) and event.key == pygame.K_a:
                     collisionbreak_unlocked = True
@@ -169,7 +170,7 @@ def main(screen):
                     if state == "PLAYING" or state == "WARNING":
                         state = "MENU" 
                     else:
-                        pygame.time.wait(200) # Give exit.mp3 a fraction of a second to play before closing module
+                        pygame.time.wait(200) 
                         running = False 
                 
                 if state == "MENU":
@@ -204,9 +205,9 @@ def main(screen):
                     if event.key == pygame.K_UP: player_speed = -10
                     if event.key == pygame.K_DOWN: player_speed = 10
                     
-                    # FLASHBANG Mechanic
+                    # FLASHBANG Mechanic 
                     if event.key == pygame.K_a and collisionbreak_active and not game_over:
-                        if rally >= 5:
+                        if rally >= 5 and flashbang_timer <= 0:
                             rally -= 5
                             flashbang_timer = 180 # 3 seconds of AI confusion
                             flashbang_alpha = 255
@@ -271,6 +272,7 @@ def main(screen):
                     if time_left <= 0:
                         time_left = 0
                         game_over = True
+                        win_message = "TIME UP! - PRESS ENTER"
                         if max_rally > high_score:
                             config["high_scores"][mode] = max_rally
                             save_config(config)
@@ -297,7 +299,6 @@ def main(screen):
 
                 # Move AI (Affected by Flashbang)
                 if collisionbreak_active and flashbang_timer > 0:
-                    # AI aims wildly and moves incredibly slow
                     target_y = ball.centery + random.randint(-300, 300)
                     ai_speed = 1.5 
                     flashbang_timer -= 1
@@ -333,21 +334,30 @@ def main(screen):
                     ball_speed_y += 0.5 if ball_speed_y > 0 else -0.5
                     if collisionbreak_active: spawn_impact(mode, ai.left, ball.centery)
 
-                # Scoring
+                # Scoring and Game Over Logic
                 if ball.left <= 0:
                     if not theme["time_limit"]: 
                         game_over = True
+                        win_message = "AI WINS! - PRESS ENTER"
                         if max_rally > high_score:
                             config["high_scores"][mode] = max_rally
                             save_config(config)
                     else:
                         ball.center = (width//2, height//2)
                         ball_speed_x = initial_ball_speed
+                        
                 elif ball.right >= width:
                     rally += 5
                     max_rally = max(max_rally, rally)
-                    ball.center = (width//2, height//2)
-                    ball_speed_x = initial_ball_speed
+                    if not theme["time_limit"]:
+                        game_over = True
+                        win_message = "PLAYER WINS! - PRESS ENTER"
+                        if max_rally > high_score:
+                            config["high_scores"][mode] = max_rally
+                            save_config(config)
+                    else:
+                        ball.center = (width//2, height//2)
+                        ball_speed_x = initial_ball_speed
 
             # Draw Standard Particles
             for p in particles[:]:
@@ -412,10 +422,6 @@ def main(screen):
                 time_text = font.render(f"TIME: {max(0, int(time_left))}", True, (255, 50, 50) if time_left < 10 else theme["p1"])
                 canvas.blit(time_text, (width - 200, 20))
 
-            if game_over:
-                go_text = font.render("GAME OVER - PRESS ENTER", True, theme["p2"])
-                canvas.blit(go_text, (width//2 - go_text.get_width()//2, height//2))
-
             # Flashbang Visual Rendering
             if flashbang_alpha > 0:
                 fb_surf = pygame.Surface((width, height))
@@ -423,6 +429,31 @@ def main(screen):
                 fb_surf.set_alpha(flashbang_alpha)
                 canvas.blit(fb_surf, (0, 0))
                 flashbang_alpha = max(0, flashbang_alpha - 5)
+
+            # High-Visibility Game Over Rendering
+            if game_over:
+                text_color = theme["p1"] if "PLAYER" in win_message else theme["p2"]
+                
+                # Dark dimming overlay for maximum contrast
+                dim_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+                dim_surf.fill((0, 0, 0, 180))
+                canvas.blit(dim_surf, (0, 0))
+
+                go_text = font.render(win_message, True, text_color)
+                shadow_text = font.render(win_message, True, (0, 0, 0))
+                
+                # Dynamic Background Box
+                box_w = go_text.get_width() + 60
+                box_h = go_text.get_height() + 40
+                box_x = width//2 - box_w//2
+                box_y = height//2 - box_h//2
+                
+                pygame.draw.rect(canvas, (20, 20, 25), (box_x, box_y, box_w, box_h), border_radius=8)
+                pygame.draw.rect(canvas, text_color, (box_x, box_y, box_w, box_h), width=4, border_radius=8)
+                
+                # Text Draw
+                canvas.blit(shadow_text, (width//2 - shadow_text.get_width()//2 + 3, height//2 - shadow_text.get_height()//2 + 3))
+                canvas.blit(go_text, (width//2 - go_text.get_width()//2, height//2 - go_text.get_height()//2))
 
         # Screen Shake Render Pipeline
         render_x, render_y = 0, 0
