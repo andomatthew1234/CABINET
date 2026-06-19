@@ -2,6 +2,10 @@
 
 THE CABINET is a games launcher with 2D retro games that work offline. Its lightweight, fun to play, and works offline.
 
+## 🎱 Let's get started.
+Installation instructions and more on our website at:
+https://andomatthew1234.github.io/CABINET/
+
 ## 🎮 Games so far
 * **StreetFight** Classic street fighter with pro physics. Fight AI with special moves.
 * **NEONRACE** High speed arcade traffic dodging. Survive the highway.
@@ -23,9 +27,6 @@ THE CABINET is a games launcher with 2D retro games that work offline. Its light
 * **One-click update** Automatically updates the launcher and all games for you in one click. Easy!
 * **Soundtrack** Every game has an anthem to it - listen along!
 * **Stunning launcher** hover effects, easy use, auto-game import.
-
-## 🎱 Let's get started.
-Instructions for getting started are coming soon, stay tuned!
 
 ## ⏬ Custom game intergrations
 * **Devs,** import your own games EASILY with the cabinet launcher. Just drag and drop your game into the /games/ folder with this structure:
