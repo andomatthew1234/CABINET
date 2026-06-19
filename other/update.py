@@ -6,6 +6,7 @@ import urllib.request
 import zipfile
 import shutil
 import subprocess
+import math  # FIXED: Imported math module for the pulse animations
 
 # Initialize Pygame and Mixer
 pygame.init()
@@ -32,7 +33,7 @@ FONT_SUB = pygame.font.SysFont("Courier New", 24, bold=True)
 FONT_TERMINAL = pygame.font.SysFont("Consolas", 16)
 
 # Configuration Vectors
-BASE_DIR = os.path.dirname(os.path.dirname(__file__)) # Navigates up to root
+BASE_DIR = os.path.dirname(os.path.dirname(__file__)) 
 MUSIC_DIR = os.path.join(BASE_DIR, 'music')
 REPO_ZIP_URL = "https://github.com/andomatthew1234/CABINET/archive/refs/heads/main.zip"
 
@@ -70,10 +71,9 @@ class SystemUpdater:
         play_sound("launch.mp3", volume=0.5)
 
     def process_download(self):
-        """Simulates rapid visual feedback block while shifting actual bytes."""
         try:
             if self.progress < 40:
-                self.progress += 1.5 # Rapid load simulation for UI pacing
+                self.progress += 1.5 
             elif self.progress == 40:
                 self.log("[STATUS]: CONNECTION ESTABLISHED. STREAMING ZIP BUNDLE...")
                 urllib.request.urlretrieve(REPO_ZIP_URL, self.zip_path)
@@ -89,7 +89,6 @@ class SystemUpdater:
             self.error_msg = str(e)
 
     def process_extraction(self):
-        """Extracts the archive data packages into a temp path structure."""
         try:
             self.progress = 95
             self.log("[STATUS]: UNZIPPING DATA LAYERS INTO TEMP INVENTORY...")
@@ -98,7 +97,7 @@ class SystemUpdater:
                 shutil.rmtree(self.extract_path)
                 
             with zipfile.ZipFile(self.zip_path, 'r') as zip_ref:
-                zipfile.ZipFile.extractall(zip_ref, self.extract_path)
+                zip_ref.extractall(self.extract_path)
                 
             self.log("[OK]: DATA EXTRACTION CYCLE TERMINATED.")
             self.state = "APPLYING"
@@ -108,18 +107,15 @@ class SystemUpdater:
             self.error_msg = str(e)
 
     def apply_update_and_restart(self):
-        """Generates a separate script to hot-swap folders without system file locks."""
         self.progress = 100
         self.log("[SYSTEM]: SPANNING OVERWRITE PAYLOAD SCRIPT...")
         
-        # Define paths for final execution
         source_dir = os.path.join(self.extract_path, 'CABINET-main')
         batch_updater = os.path.join(os.environ.get('TEMP', BASE_DIR), 'cabinet_hot_swap.bat')
         
-        # Build raw runtime batch script to completely bypass running handles
         with open(batch_updater, 'w') as f:
             f.write(f"@echo off\n")
-            f.write("timeout /t 1 >nul\n") # Give python half a second to completely release file handles
+            f.write("timeout /t 1 >nul\n") 
             f.write(f"xcopy \"{source_dir}\\\" \"{BASE_DIR}\\\" /E /I /Y /Q >nul\n")
             f.write(f"del \"{self.zip_path}\"\n")
             f.write(f"start /d \"{BASE_DIR}\" python \"app.py\"\n")
@@ -134,7 +130,7 @@ class SystemUpdater:
         self.ticks += 1
         t = self.ticks
         
-        # 1. Hype Pulsing Header
+        # Hype Pulsing Header
         pulse = math.sin(t * 0.05) * 3
         title_red = FONT_TITLE.render("SYSTEM UPDATE MATRIX", True, (255, 0, 50))
         title_blue = FONT_TITLE.render("SYSTEM UPDATE MATRIX", True, (0, 200, 255))
@@ -146,32 +142,29 @@ class SystemUpdater:
         screen.blit(title_blue, (bx + 2 - pulse, by))
         screen.blit(title_main, (bx, by))
         
-        # 2. Main Terminal Log Display Box
+        # Main Terminal Log Display Box
         box_w, box_h = 750, 240
         box_x, box_y = WIDTH // 2 - box_w // 2, 140
         pygame.draw.rect(screen, PANEL_BG, (box_x, box_y, box_w, box_h), border_radius=8)
         pygame.draw.rect(screen, NEON_CYAN if self.state != "FAILED" else (255, 0, 50), (box_x, box_y, box_w, box_h), width=2, border_radius=8)
         
-        # Render scrolling log array lines
         for i, line in enumerate(self.status_log):
             color = NEON_GREEN if "[OK]" in line else (NEON_PINK if "[SYSTEM]" in line else TEXT_MAIN)
             log_surf = FONT_TERMINAL.render(line, True, color)
             screen.blit(log_surf, (box_x + 25, box_y + 25 + (i * 24)))
             
         if self.state == "FAILED":
-            err_surf = FONT_TERMINAL.render(f"ERROR: {self.error_msg[:60]}", True, (255, 0,  red))
+            err_surf = FONT_TERMINAL.render(f"ERROR: {self.error_msg[:60]}", True, (255, 50, 50))
             screen.blit(err_surf, (box_x + 25, box_y + box_h - 35))
 
-        # 3. Dynamic Progress Control Center
+        # Dynamic Progress Control Center
         bar_w, bar_h = 600, 30
         bar_x, bar_y = WIDTH // 2 - bar_w // 2, 440
         
         if self.state in ["DOWNLOADING", "EXTRACTING", "APPLYING"]:
-            # Draw Progress Tracking Outline
             pygame.draw.rect(screen, (30, 30, 45), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
             pygame.draw.rect(screen, NEON_PINK, (bar_x + 2, bar_y + 2, int((self.progress / 100.0) * (bar_w - 4)), bar_h - 4), border_radius=2)
             
-            # Draw Hacking Bracket Strings
             bar_length = 25
             filled = int((self.progress / 100.0) * bar_length)
             ascii_str = f"[{'#' * filled}{'-' * (bar_length - filled)}] {int(self.progress)}%"
@@ -179,7 +172,6 @@ class SystemUpdater:
             screen.blit(ascii_surf, (WIDTH // 2 - ascii_surf.get_width() // 2, bar_y + 50))
             
         elif self.state == "READY":
-            # Flashing Awaiting Input Vector
             if (t // 20) % 2 == 0:
                 prompt_surf = FONT_SUB.render("PRESS [ENTER] TO EXECUTE CORE UPGRADE", True, NEON_GREEN)
                 screen.blit(prompt_surf, (WIDTH // 2 - prompt_surf.get_width() // 2, bar_y))
@@ -194,7 +186,6 @@ class SystemUpdater:
     def run(self):
         running = True
         while running:
-            # Process State Machine Updates
             if self.state == "DOWNLOADING":
                 self.process_download()
             elif self.state == "EXTRACTING":
