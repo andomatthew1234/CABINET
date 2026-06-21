@@ -17,12 +17,13 @@ clock = pygame.time.Clock()
 
 # Fonts
 FONT_BEAST = pygame.font.SysFont("Courier New", 90, bold=True, italic=True)
-FONT_MASSIVE = pygame.font.SysFont("Impact", 120, bold=True)
+FONT_MASSIVE = pygame.font.SysFont("Impact", 110, bold=True)
 FONT_SUB = pygame.font.SysFont("Courier New", 28, bold=True)
 FONT_TERMINAL = pygame.font.SysFont("Consolas", 16)
 
-# Paths
-BASE_DIR = os.path.dirname(os.path.dirname(__file__)) 
+# Absolute Path Resolution
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(CURRENT_DIR) 
 MUSIC_DIR = os.path.join(BASE_DIR, 'music')
 APP_PATH = os.path.join(BASE_DIR, 'app.py')
 
@@ -43,8 +44,8 @@ def play_sound(filename, loop=0, volume=1.0):
 
 class IntroSequence:
     def __init__(self):
-        # Master State Pipeline
-        self.state = "BIOS" # BIOS -> BIOS_FADE -> LOADING -> GLITCH -> SPRINT -> FADEOUT
+        # Target: 25 Seconds Total Runtime (1500 frames at 60 FPS)
+        self.state = "BIOS"  # BIOS -> BIOS_FADE -> LOADING -> GLITCH -> SPRINT -> FADEOUT
         self.ticks = 0
         self.state_ticks = 0
         self.sprint_start_tick = 0
@@ -52,44 +53,57 @@ class IntroSequence:
         # BIOS Sequence Data
         self.bios_lines = []
         self.bios_messages = [
-            "CPU_INIT_OK()", "MEM_CHECK: 64000K OK", "LOADING GRAPHICS KERNEL...",
-            "MOUNTING /games/pong.cart ... OK", "MOUNTING /games/racer.cart ... OK",
-            "MOUNTING /games/tetris.cart ... OK", "MOUNTING /games/snake.cart ... OK",
-            "MOUNTING /games/water_sort.cart ... OK", "BYPASSING NEURAL LIMITERS...",
-            "AUDIO_SYSTEM: ONLINE", "AWAITING SYSTEM WAKE..."
+            "CPU_CORE_INIT: CORE_MATRIX_OK", "MEM_ALLOC: 131072K BUFFER CACHE INITIALIZED", 
+            "GRAPHICS LAYER: ACCELERATION MODULE DETECTED",
+            "SCANNING /GAMES/ FILESYSTEM MATRIX...", "MOUNTING: ast, blocks, fighter, pong, racing, snake, tetris",
+            "D-PAD / JOYSTICK INTERFACE CONNECTED", "AUDIO ENGINE: 44100HZ MIXER ONLINE", 
+            "DECOUPLING HOVER OVERLAY ARRAYS...", "ESTABLISHING MAIN SYSTEM TERMINAL HANDSHAKE..."
         ]
         
-        # Animation Data
+        # Animation & Special Effects State
         self.load_progress = 0.0
         self.fade_alpha = 0
-        self.stars = [[random.uniform(-WIDTH, WIDTH), random.uniform(-HEIGHT, HEIGHT), random.uniform(0.1, 2.0)] for _ in range(400)]
+        self.stars = [[random.uniform(-WIDTH, WIDTH), random.uniform(-HEIGHT, HEIGHT), random.uniform(0.1, 2.0)] for _ in range(350)]
         self.grid_y = 0
+        self.skip_hint_alpha = 255
+
+    def draw_skip_hint(self):
+        """Renders an elegant fading 'Press Space to Skip' overlay at the bottom footer."""
+        if self.ticks < 180:  # Fades smoothly over the first 3 seconds
+            self.skip_hint_alpha = max(0, 255 - int((self.ticks / 180.0) * 255))
+            
+        if self.skip_hint_alpha > 0:
+            hint_surface = pygame.Surface((WIDTH, 40), pygame.SRCALPHA)
+            txt = FONT_TERMINAL.render("— PRESS SPACEBAR TO ABORT PROLOGUE SEQUENCE —", True, (0, 240, 255))
+            hint_surface.blit(txt, (WIDTH // 2 - txt.get_width() // 2, 10))
+            hint_surface.set_alpha(self.skip_hint_alpha)
+            screen.blit(hint_surface, (0, HEIGHT - 50))
 
     def draw_bios(self):
-        screen.fill((5, 5, 10))
-        if self.ticks % 4 == 0 and len(self.bios_lines) < len(self.bios_messages):
+        screen.fill((8, 8, 12))
+        # Speed up BIOS line feed to get into action faster
+        if self.ticks % 3 == 0 and len(self.bios_lines) < len(self.bios_messages):
             self.bios_lines.append(self.bios_messages[len(self.bios_lines)])
-            if len(self.bios_lines) % 3 == 0:
-                play_sound("move.mp3", volume=0.15) 
+            if len(self.bios_lines) % 2 == 0:
+                play_sound("move.mp3", volume=0.10) 
             
         for i, line in enumerate(self.bios_lines):
-            text = FONT_TERMINAL.render(line, True, (0, 255, 100))
-            screen.blit(text, (20, 20 + (i * 20)))
+            text = FONT_TERMINAL.render(line, True, (0, 255, 150))
+            screen.blit(text, (30, 30 + (i * 22)))
             
         if len(self.bios_lines) >= len(self.bios_messages):
             if self.state_ticks == 0: self.state_ticks = self.ticks
-            if self.ticks - self.state_ticks > 60: 
+            if self.ticks - self.state_ticks > 30: 
                 self.state = "BIOS_FADE"
                 self.fade_alpha = 0
 
     def draw_bios_fade(self):
-        # Continue rendering BIOS beneath fade
-        screen.fill((5, 5, 10))
+        screen.fill((8, 8, 12))
         for i, line in enumerate(self.bios_lines):
-            text = FONT_TERMINAL.render(line, True, (0, 255, 100))
-            screen.blit(text, (20, 20 + (i * 20)))
+            text = FONT_TERMINAL.render(line, True, (0, 255, 150))
+            screen.blit(text, (30, 30 + (i * 22)))
             
-        self.fade_alpha += 4
+        self.fade_alpha += 8
         overlay = pygame.Surface((WIDTH, HEIGHT))
         overlay.fill((0, 0, 0))
         overlay.set_alpha(min(255, self.fade_alpha))
@@ -100,131 +114,123 @@ class IntroSequence:
             self.state_ticks = self.ticks
 
     def draw_loading(self):
-        screen.fill((0, 0, 0))
+        screen.fill((5, 5, 8))
         
-        self.load_progress += 0.6
+        # Accelerated asset processing speed
+        self.load_progress += 1.4
         if self.load_progress >= 100:
             self.load_progress = 100
             self.state = "GLITCH"
             self.state_ticks = self.ticks
-            play_sound("move.mp3", volume=1.0) # Sharp glitch noise
+            play_sound("move.mp3", volume=0.7) 
             return
         
-        # Clean progress bar
-        pygame.draw.rect(screen, (20, 20, 30), (WIDTH//2 - 200, HEIGHT//2 - 20, 400, 40), 2)
-        pygame.draw.rect(screen, (0, 255, 255), (WIDTH//2 - 198, HEIGHT//2 - 18, int((self.load_progress/100) * 396), 36))
+        # Sleek Neon Loading Bar Construction
+        pygame.draw.rect(screen, (30, 30, 45), (WIDTH//2 - 250, HEIGHT//2 - 15, 500, 30), border_radius=6)
+        pygame.draw.rect(screen, (0, 240, 255), (WIDTH//2 - 247, HEIGHT//2 - 12, int((self.load_progress/100) * 494), 24), border_radius=4)
         
-        load_text = FONT_SUB.render("COMPILING SYSTEM ASSETS...", True, (255, 0, 127))
-        bar_text = FONT_TERMINAL.render(f"PROGRESS: {int(self.load_progress)}%", True, (255, 255, 255))
+        load_text = FONT_SUB.render("COMPILING RUNTIME INFRASTRUCTURE", True, (255, 0, 127))
+        bar_text = FONT_TERMINAL.render(f"SYNCHRONIZING FILE ENGINES: {int(self.load_progress)}%", True, (150, 150, 180))
         
-        screen.blit(load_text, (WIDTH//2 - load_text.get_width()//2, HEIGHT//2 - 70))
-        screen.blit(bar_text, (WIDTH//2 - bar_text.get_width()//2, HEIGHT//2 + 40))
+        screen.blit(load_text, (WIDTH//2 - load_text.get_width()//2, HEIGHT//2 - 60))
+        screen.blit(bar_text, (WIDTH//2 - bar_text.get_width()//2, HEIGHT//2 + 35))
 
     def draw_glitch(self):
         screen.fill((0, 0, 0))
         local_t = self.ticks - self.state_ticks
         
-        # 40 frames of severe glitching
-        if local_t < 40:
-            pygame.draw.rect(screen, (20, 20, 30), (WIDTH//2 - 200, HEIGHT//2 - 20, 400, 40), 2)
-            pygame.draw.rect(screen, (255, 0, 50), (WIDTH//2 - 198, HEIGHT//2 - 18, 396, 36))
+        # Sharp 20 frame crash matrix simulation
+        if local_t < 20:
+            pygame.draw.rect(screen, (255, 0, 80), (WIDTH//2 - 250, HEIGHT//2 - 15, 500, 30))
+            glitch_chars = ['@', 'Ø', '$', '%', '&', '▒', '!', '█', 'SYSTEM_ERR']
+            glitch_str = "".join([random.choice(glitch_chars) for _ in range(12)])
             
-            glitch_chars = ['@', '#', '$', '%', '&', '*', '!', 'X', 'ERR']
-            glitch_str = "".join([random.choice(glitch_chars) for _ in range(15)])
+            load_text = FONT_SUB.render(f"OVERFLOW: {glitch_str}", True, (255, 255, 0))
+            bar_text = FONT_TERMINAL.render("STACK_LEAK_CORRUPT_TERMINAL_0x000000", True, (255, 30, 30))
             
-            load_text = FONT_SUB.render(f"SYS_FAIL: {glitch_str}", True, (255, 255, 0))
-            bar_text = FONT_TERMINAL.render("FATAL_MEMORY_LEAK_0xFFFFFFFF", True, (255, 0, 50))
+            jx = random.randint(-12, 12)
+            jy = random.randint(-12, 12)
             
-            jx = random.randint(-15, 15)
-            jy = random.randint(-15, 15)
-            
-            screen.blit(load_text, (WIDTH//2 - load_text.get_width()//2 + jx, HEIGHT//2 - 70 + jy))
-            screen.blit(bar_text, (WIDTH//2 - bar_text.get_width()//2 - jx, HEIGHT//2 + 40 - jy))
-        
-        # 20 frames of pure black silence
-        elif local_t < 60:
-            pass # Screen stays pure black
-            
+            screen.blit(load_text, (WIDTH//2 - load_text.get_width()//2 + jx, HEIGHT//2 - 60 + jy))
+            screen.blit(bar_text, (WIDTH//2 - bar_text.get_width()//2 - jx, HEIGHT//2 + 35 - jy))
+        elif local_t < 35:
+            pass  # Pure cinematic dead space frame pause
         else:
-            # Boom. Hit the music and start the sprint.
+            # Shift master orchestration layer to intro track soundtrack execution
             self.state = "SPRINT"
             self.sprint_start_tick = self.ticks
-            play_sound("menu.mp3", loop=-1, volume=1.0)
+            play_sound("intro.mp3", loop=-1, volume=0.8)
 
     def draw_sprint(self):
-        """ The 31-second (1860 tick) cinematic showcase synced perfectly to 60fps. """
         st = self.ticks - self.sprint_start_tick
         screen.fill((0, 0, 0))
 
-        # --- PHASE 1: THE SINGULARITY (0s - 4s / 0 - 240 ticks) ---
-        if st < 240:
-            # First second: Draw horizontal line
-            progress_w = min(1.0, st / 60.0)
-            # Second second: Explode vertically
-            progress_h = min(1.0, max(0.0, st - 60) / 60.0) ** 4
+        # --- PHASE 1: THE CORE GATEWAY (0s - 3s) ---
+        if st < 180:
+            progress_w = min(1.0, st / 45.0)
+            progress_h = min(1.0, max(0.0, st - 45) / 45.0) ** 4
             
             line_w = int(progress_w * WIDTH)
             line_h = int(progress_h * HEIGHT)
             
             pygame.draw.rect(screen, (255, 255, 255), (WIDTH//2 - line_w//2, HEIGHT//2 - line_h//2, line_w, max(2, line_h)))
             
-            if st > 120:
-                txt = FONT_SUB.render("Welcome to the Cabinet", True, (0, 0, 0))
+            if st > 80:
+                txt = FONT_SUB.render("INITIALIZING MAIN SELECTION VAULT", True, (10, 10, 20))
                 screen.blit(txt, (WIDTH//2 - txt.get_width()//2, HEIGHT//2 - txt.get_height()//2))
 
-        # --- PHASE 2: THE SHOWCASE (4s - 9s / 240 - 540 ticks) ---
-        elif st < 540:
-            local_t = st - 240
-            phase = local_t // 60 # 60 frames (1 second) per game
+        # --- PHASE 2: DYNAMIC GAME CAROUSEL SHOWCASE (3s - 10s) ---
+        elif st < 600:
+            local_t = st - 180
+            # 60 frames per phase loop sequence showcase
+            phase = local_t // 60 
             
-            games = [
-                ("OMNI-PONG", (0, 255, 255)),
+            games_pool = [
+                ("ASTREIOIDS", (0, 240, 255)),
+                ("GRIDFUSION", (0, 255, 150)),
+                ("STREET FIGHTER", (255, 100, 0)),
                 ("NEON RACER", (255, 0, 127)),
-                ("TOXIC SNAKE", (0, 255, 100)),
+                ("TOXIC SNAKE", (100, 255, 50)),
                 ("TETRIS MATRIX", (255, 255, 0)),
-                ("WATER SORT", (150, 0, 255))
+                ("WATER SORT", (200, 0, 255))
             ]
             
-            if phase < len(games):
-                name, color = games[phase]
+            if phase < len(games_pool):
+                name, color = games_pool[phase]
+                bg_radius = int((local_t % 60) / 60.0 * WIDTH * 1.6)
+                pygame.draw.circle(screen, (*color, 25), (WIDTH//2, HEIGHT//2), bg_radius, 4)
                 
-                # Extreme contrast: Solid black background, neon color bursts
-                bg_radius = int((local_t % 60) / 60.0 * WIDTH * 1.5)
-                pygame.draw.circle(screen, (*color, 30), (WIDTH//2, HEIGHT//2), bg_radius)
-                
-                jitter_x = random.randint(-4, 4)
-                jitter_y = random.randint(-4, 4)
+                jx = random.randint(-3, 3)
+                jy = random.randint(-3, 3)
                 
                 txt_shadow = FONT_MASSIVE.render(name, True, (255, 255, 255))
                 txt_main = FONT_MASSIVE.render(name, True, color)
                 
-                screen.blit(txt_shadow, (WIDTH//2 - txt_shadow.get_width()//2 + jitter_x - 4, HEIGHT//2 - txt_shadow.get_height()//2 + jitter_y))
-                screen.blit(txt_main, (WIDTH//2 - txt_main.get_width()//2 + jitter_x, HEIGHT//2 - txt_main.get_height()//2 + jitter_y))
+                screen.blit(txt_shadow, (WIDTH//2 - txt_shadow.get_width()//2 + jx - 3, HEIGHT//2 - txt_shadow.get_height()//2 + jy))
+                screen.blit(txt_main, (WIDTH//2 - txt_main.get_width()//2 + jx, HEIGHT//2 - txt_main.get_height()//2 + jy))
 
-        # --- PHASE 3: THE OVERDRIVE (9s - 15s / 540 - 900 ticks) ---
-        elif st < 900:
-            self.grid_y += 20 
+        # --- PHASE 3: GRID ACCELERATION (10s - 14s) ---
+        elif st < 840:
+            self.grid_y += 24 
             if self.grid_y > 100: self.grid_y = 0
             
             for y in range(0, HEIGHT, 40):
                 py = HEIGHT - int((HEIGHT - y) ** 2 / HEIGHT) + self.grid_y
                 if py < HEIGHT:
-                    pygame.draw.line(screen, (0, 255, 100), (0, py), (WIDTH, py), 1)
+                    pygame.draw.line(screen, (0, 240, 255), (0, py), (WIDTH, py), 1)
             
             for x in range(0, WIDTH + 200, 100):
                 offset = x - WIDTH//2
-                pygame.draw.line(screen, (0, 255, 100), (WIDTH//2, HEIGHT//2 - 50), (WIDTH//2 + offset * 3, HEIGHT), 2)
+                pygame.draw.line(screen, (0, 240, 255), (WIDTH//2, HEIGHT//2 - 50), (WIDTH//2 + offset * 3, HEIGHT), 2)
             
-            # Flash text on 30 frame intervals (half seconds)
-            glitch_txt = "SYSTEM OVERDRIVE ENGAGED" if (st // 30) % 2 == 0 else ""
-            if glitch_txt:
-                gt = FONT_MASSIVE.render(glitch_txt, True, (255, 0, 50))
+            if (st // 20) % 2 == 0:
+                gt = FONT_MASSIVE.render("LAUNCH SEQUENCE ACTIVE", True, (255, 0, 100))
                 screen.blit(gt, (WIDTH//2 - gt.get_width()//2, HEIGHT//4))
 
-        # --- PHASE 4: THE BEAST (15s - 25s / 900 - 1500 ticks) ---
-        elif st < 1500:
+        # --- PHASE 4: TUNNEL SPRINT HYPERSPACE (14s - 20s) ---
+        elif st < 1200:
             for star in self.stars:
-                star[2] -= 0.15 
+                star[2] -= 0.22  # High speed hyperspace drift mechanics
                 if star[2] <= 0.1: 
                     star[0] = random.uniform(-WIDTH, WIDTH)
                     star[1] = random.uniform(-HEIGHT, HEIGHT)
@@ -238,10 +244,10 @@ class IntroSequence:
                 py = int(star[1] * prev_k + HEIGHT / 2)
                 
                 if -1000 <= x <= WIDTH + 1000 and -1000 <= y <= HEIGHT + 1000:
-                    pygame.draw.line(screen, (255, 255, 255), (px, py), (x, y), 3)
+                    pygame.draw.line(screen, (255, 255, 255), (px, py), (x, y), 2)
 
-            pulse = math.sin(st * 0.15) * 12
-            float_y = math.sin(st * 0.05) * 15
+            pulse = math.sin(st * 0.2) * 15
+            float_y = math.sin(st * 0.08) * 12
             title_str = "THE CABINET"
             
             t_red = FONT_BEAST.render(title_str, True, (255, 0, 50))
@@ -251,28 +257,24 @@ class IntroSequence:
             bx = WIDTH // 2 - t_main.get_width() // 2
             by = HEIGHT // 2 - t_main.get_height() // 2 + float_y
             
-            screen.blit(t_red, (bx - 10 + pulse, by))
-            screen.blit(t_blue, (bx + 10 - pulse, by))
+            screen.blit(t_red, (bx - 8 + pulse, by))
+            screen.blit(t_blue, (bx + 8 - pulse, by))
             screen.blit(t_main, (bx, by))
 
-        # --- PHASE 5: COUNTDOWN (25s - 31s / 1500 - 1860 ticks) ---
-        elif st < 1860:
-            if st < 1620:
-                # "LAUNCHING IN..." takes up 1500 to 1620 (2 seconds)
-                txt = FONT_MASSIVE.render("LAUNCHING IN...", True, (255, 255, 255))
-                screen.blit(txt, (WIDTH//2 - txt.get_width()//2, HEIGHT//2 - txt.get_height()//2))
-            else:
-                # 3, 2, 1 Countdown Sequence (80 frames / 1.33 seconds per number)
-                local_t = st - 1620
-                count = 3 - (local_t // 80)
+        # --- PHASE 5: ULTIMATE RADIAL COUNTDOWN (20s - 25s) ---
+        elif st < 1500:
+            local_t = st - 1200
+            count = 5 - (local_t // 60)
+            
+            if count > 0:
+                # Pulsing circular shockwaves matching countdown numbers
+                rad_pulse = (local_t % 60) / 60.0
+                pygame.draw.circle(screen, (0, 255, 150), (WIDTH//2, HEIGHT//2), int(rad_pulse * 300), 3)
                 
-                if count > 0:
-                    ct = FONT_MASSIVE.render(str(count), True, (255, 255, 255))
-                    sx = random.randint(-15, 15)
-                    sy = random.randint(-15, 15)
-                    screen.blit(ct, (WIDTH//2 - ct.get_width()//2 + sx, HEIGHT//2 - ct.get_height()//2 + sy))
-
-        # --- TRIGGER AT 31 SECONDS ---
+                ct = FONT_MASSIVE.render(str(count), True, (255, 255, 255))
+                sx = random.randint(-6, 6)
+                sy = random.randint(-6, 6)
+                screen.blit(ct, (WIDTH//2 - ct.get_width()//2 + sx, HEIGHT//2 - ct.get_height()//2 + sy))
         else:
             self.trigger_launch()
 
@@ -280,7 +282,6 @@ class IntroSequence:
         if self.state != "FADEOUT":
             self.state = "FADEOUT"
             play_sound("launch.mp3")
-            # Smooth fadeout of the soundtrack
             pygame.mixer.music.fadeout(1000)
 
     def run(self):
@@ -294,12 +295,9 @@ class IntroSequence:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
-                        
-                    # Dev Skip: Instantly trigger launch
                     if event.key == pygame.K_SPACE:
                         self.trigger_launch()
 
-            # --- RENDER PIPELINE ---
             if self.state == "BIOS":
                 self.draw_bios()
             elif self.state == "BIOS_FADE":
@@ -313,7 +311,7 @@ class IntroSequence:
             elif self.state == "FADEOUT":
                 self.draw_sprint() 
                 
-                self.fade_alpha += 8
+                self.fade_alpha += 12  # Faster flash velocity fade transition
                 flash_surf = pygame.Surface((WIDTH, HEIGHT))
                 flash_surf.fill((255, 255, 255))
                 flash_surf.set_alpha(min(255, self.fade_alpha))
@@ -321,8 +319,12 @@ class IntroSequence:
                 
                 if self.fade_alpha >= 300: 
                     pygame.quit()
-                    subprocess.Popen([sys.executable, APP_PATH])
+                    subprocess.Popen([sys.executable, APP_PATH], cwd=BASE_DIR)
                     sys.exit()
+
+            # Ensure overlay hint stays active across initial boots
+            if self.state in ["BIOS", "BIOS_FADE", "LOADING", "GLITCH", "SPRINT"]:
+                self.draw_skip_hint()
 
             pygame.display.flip()
             clock.tick(60)

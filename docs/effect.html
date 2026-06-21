@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Developer Brief - THE CABINET</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Segoe UI", sans-serif;
+}
+
+body {
+    background: #070707;
+    color: white;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+    linear-gradient(#00ffcc22 1px, transparent 1px),
+    linear-gradient(90deg, #00ffcc22 1px, transparent 1px);
+    background-size: 45px 45px;
+    animation: gridMove 8s linear infinite;
+    z-index: -2;
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+    repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        #0005 4px
+    );
+    pointer-events: none;
+    z-index: 5;
+}
+
+@keyframes gridMove {
+    from { transform: translateY(0); }
+    to { transform: translateY(45px); }
+}
+
+.container {
+    max-width: 1000px;
+    margin: 60px auto;
+    padding: 40px;
+    background: #111;
+    border-radius: 20px;
+    border: 1px solid #222;
+    box-shadow: 0 0 40px #000;
+    position: relative;
+    z-index: 10;
+}
+
+h1 {
+    font-size: 3rem;
+    color: #00ffcc;
+    text-shadow: 0 0 15px #00ffcc;
+    margin-bottom: 20px;
+    margin-top: 20px;
+}
+
+h2 {
+    font-size: 2rem;
+    color: #00ffcc;
+    margin-top: 40px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #00ffcc;
+}
+
+h3 {
+    font-size: 1.4rem;
+    color: #fff;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+p, li {
+    color: #aaa;
+    line-height: 1.8;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+}
+
+ul {
+    margin-left: 20px;
+    margin-bottom: 20px;
+}
+
+pre {
+    background: #070707;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    overflow-x: auto;
+    margin: 20px 0;
+}
+
+code {
+    font-family: "Consolas", monospace;
+    color: #00ffcc;
+}
+
+pre code {
+    color: #ddd;
+}
+
+.highlight {
+    color: #00ffcc;
+}
+
+.btn-back {
+    display: inline-block;
+    padding: 10px 20px;
+    background: transparent;
+    border: 2px solid #00ffcc;
+    color: #00ffcc;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: .3s;
+    margin-bottom: 20px;
+}
+
+.btn-back:hover {
+    background: #00ffcc;
+    color: black;
+    box-shadow: 0 0 25px #00ffcc;
+    transform: translateY(-3px);
+}
+
+.arg-list span {
+    color: #00ffcc;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <a href="index.html" class="btn-back">← Back to Home</a>
+    
+    <h1>Developer Brief: Custom Game Hover Effects</h1>
+    <p>THE CABINET launcher uses a decoupled UI architecture. Instead of hardcoding animations inside the core launcher (<code>app.py</code>), the launcher dynamically scales by auto-importing custom hover effects directly from each game's folder.</p>
+    <p>When a user hovers over your game card via touch, mouse, keyboard, or an arcade gamepad, the launcher looks for a file named <code>effect.py</code> inside your game's directory and executes it.</p>
+
+    <h2>🏗️ Architecture Overview</h2>
+    <p>The system isolates launcher drawing logic from game mechanics. Instead of keeping static checks inside the main menu loop, the launcher dynamically exposes the active card's rendering surface and bounding boxes directly to external scripts.</p>
+<pre><code>📁 root directory
+│
+├── 📄 app.py (Core Launcher)
+│
+└── 📁 games
+    └── 📁 your_game_folder
+        ├── 📄 config.json  (Metadata)
+        ├── 📄 game.py     (Main Gameplay Payload)
+        └── 📄 <span class="highlight">effect.py</span>   (Menu Hover Animation)  &lt;-- Your custom effect</code></pre>
+
+    <h2>🛠️ The effect.py Specification</h2>
+    <p>To make a custom menu animation work with THE CABINET's auto-import layout, your <code>effect.py</code> file must contain a function named exactly <code>draw_effect</code> that accepts three specific arguments:</p>
+<pre><code>def draw_effect(screen, rect, ticks):
+    """
+    Renders a custom menu hover animation inside or around the game card.
+    
+    Arguments:
+        screen (pygame.Surface): The master window display surface.
+        rect (pygame.Rect):     The current bounding box of the selected menu card.
+        ticks (int):            A continuously running frame counter for animations.
+    """
+    pass</code></pre>
+
+    <h3>Understanding the Arguments:</h3>
+    <ul>
+        <li class="arg-list"><span>screen:</span> The surface to draw your elements onto.</li>
+        <li class="arg-list"><span>rect:</span> The exact position and dimensions of the menu card. Because users can scroll kinetically or select via gamepads, <code>rect.top</code>, <code>rect.bottom</code>, <code>rect.left</code>, and <code>rect.right</code> will change dynamically. Always base your positioning coordinates on this rect object.</li>
+        <li class="arg-list"><span>ticks:</span> A standard integer that increments by 1 every frame (60 fps). Use this parameter instead of keeping track of separate timing variables to run time-based mathematics (like <code>math.sin()</code> or modulo operations <code>%</code>).</li>
+    </ul>
+
+    <h2>📋 Step-by-Step Implementation Guide</h2>
+    <p>Follow this protocol to construct and bundle a new effect:</p>
+
+    <h3>Step 1: Isolate Rendering Boundaries</h3>
+    <p>To keep the main launcher text clean and layout margins consistent across games, constrain your custom drawings to the inside bounds of the card. Use Pygame's built-in clipping feature to guarantee drawings don't leak out during rapid menu scrolling:</p>
+<pre><code>import pygame
+import math
+
+def draw_effect(screen, rect, ticks):
+    # Lock drawing strictly inside the game card's boundaries
+    screen.set_clip(rect)
+    
+    # ... Your drawing logic goes here ...
+    
+    # CRITICAL: Always release the clip at the end so the rest of the launcher renders!
+    screen.set_clip(None)</code></pre>
+
+    <h3>Step 2: Build Relative Animations</h3>
+    <p>Do not use absolute coordinates like (500, 300). Use positions relative to the passed <code>rect</code> argument so that the effect naturally moves along with the launcher's kinetic scrolling:</p>
+<pre><code>    # Calculate a safe workspace area on the right side of the card
+    workspace_w = 60
+    render_x = rect.right - workspace_w - 20
+    render_y = rect.centery</code></pre>
+
+    <h3>Step 3: Run Cycle Mathematics</h3>
+    <p>Use the <code>ticks</code> parameter to execute loops or smooth transitions. For instance, to calculate a bouncing loop that repeats every 60 frames (1 second):</p>
+<pre><code>    loop_timeline = ticks % 60
+    normalized_progress = loop_timeline / 60.0  # Moves from 0.0 to 1.0 smoothly</code></pre>
+
+    <h2>💡 Reference Boilerplate Template</h2>
+    <p>Below is a production-ready template showing a complete <code>effect.py</code> workflow that draws a pulsing radar ring on the right edge of a game card:</p>
+<pre><code>import pygame
+import math
+
+def draw_effect(screen, rect, ticks):
+    """Draws a flashing neon radar ring relative to the card's right boundary."""
+    
+    # 1. Protect layout canvas with clipping mask
+    screen.set_clip(rect)
+    
+    # 2. Establish anchoring anchors
+    center_x = rect.right - 50
+    center_y = rect.centery
+    
+    # 3. Create timing logic using the master frame clock
+    pulse_cycle = (ticks * 2) % 100
+    radius = int((pulse_cycle / 100.0) * 35) + 5
+    alpha = max(0, 255 - int((pulse_cycle / 100.0) * 255))
+    
+    # 4. Render alpha transparencies using a workspace canvas
+    temp_surf = pygame.Surface((100, 100), pygame.SRCALPHA)
+    pygame.draw.circle(temp_surf, (0, 240, 255, alpha), (50, 50), radius, 2)
+    
+    # 5. Composite back onto launcher display matrix
+    screen.blit(temp_surf, (center_x - 50, center_y - 50))
+    
+    # 6. Release clip to preserve master launcher frame stack
+    screen.set_clip(None)</code></pre>
+
+</div>
+
+</body>
+</html>

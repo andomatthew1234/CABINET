@@ -10,6 +10,9 @@ import shutil
 import tkinter as tk
 from tkinter import filedialog
 
+# --- GUARANTEED ABSOLUTE PATH FIX ---
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Initialize Pygame, Mixer, and Joystick
 pygame.init()
 pygame.mixer.init()
@@ -56,7 +59,7 @@ TRACK_ALIASES = {
 
 def play_sound(filename, loop=0, volume=1.0):
     try:
-        path = os.path.join(os.path.dirname(__file__), 'music', filename)
+        path = os.path.join(ROOT_DIR, 'music', filename)
         if os.path.exists(path):
             if loop == -1:
                 pygame.mixer.music.load(path)
@@ -75,7 +78,7 @@ class ArcadeLauncher:
         self.selected_index = 0
         self.load_games()
         
-        self.view_state = "GAMES" # "GAMES" or "TRACKS"
+        self.view_state = "GAMES" 
         
         # Audio / Track State
         self.tracks = self.load_tracks()
@@ -88,7 +91,7 @@ class ArcadeLauncher:
         self.target_scroll_y = 0
         self.scroll_velocity = 0
         self.is_dragging = False
-        self.is_dragging_volume = False # Prevents row clicks while sliding volume
+        self.is_dragging_volume = False 
         self.drag_start_y = 0
         self.last_mouse_y = 0
         self.drag_accumulated = 0 
@@ -101,7 +104,7 @@ class ArcadeLauncher:
 
     def load_games(self):
         self.games = []
-        games_dir = os.path.join(os.path.dirname(__file__), 'games')
+        games_dir = os.path.join(ROOT_DIR, 'games')
         if not os.path.exists(games_dir): return
 
         for folder in os.listdir(games_dir):
@@ -113,19 +116,33 @@ class ArcadeLauncher:
                 try:
                     with open(config_path, 'r') as f:
                         config = json.load(f)
+                        
+                    # DYNAMIC HOVER EFFECT LOADER
+                    effect_func = None
+                    effect_script = os.path.join(folder_path, 'effect.py')
+                    if os.path.exists(effect_script):
+                        module_name = f"games.{folder}.effect"
+                        if module_name in sys.modules:
+                            effect_module = importlib.reload(sys.modules[module_name])
+                        else:
+                            effect_module = importlib.import_module(module_name)
+                        if hasattr(effect_module, 'draw_effect'):
+                            effect_func = effect_module.draw_effect
+                            
                     self.games.append({
                         "id": folder.lower(),
                         "title": config.get("title", folder.upper()),
                         "description": config.get("description", "No description provided."),
                         "high_score": config.get("high_score", 0),
-                        "config_path": config_path
+                        "config_path": config_path,
+                        "effect_func": effect_func
                     })
                 except Exception as e:
                     print(f"Error loading game '{folder}': {e}")
 
     def load_tracks(self):
         tracks = []
-        music_dir = os.path.join(os.path.dirname(__file__), 'music')
+        music_dir = os.path.join(ROOT_DIR, 'music')
         if not os.path.exists(music_dir): return tracks
         
         for file in sorted(os.listdir(music_dir)):
@@ -135,7 +152,7 @@ class ArcadeLauncher:
         return tracks
 
     def download_track(self, filename):
-        src = os.path.join(os.path.dirname(__file__), 'music', filename)
+        src = os.path.join(ROOT_DIR, 'music', filename)
         if not os.path.exists(src): return
         
         root = tk.Tk()
@@ -169,8 +186,8 @@ class ArcadeLauncher:
         
         if game_id == "update":
             pygame.quit()
-            update_script = os.path.join(os.path.dirname(__file__), 'other', 'update.py')
-            subprocess.Popen([sys.executable, update_script])
+            update_script = os.path.join(ROOT_DIR, 'other', 'update.py')
+            subprocess.Popen([sys.executable, update_script], cwd=ROOT_DIR)
             sys.exit()
         else:
             self.launch_game(game_id)
@@ -222,6 +239,7 @@ class ArcadeLauncher:
             pygame.mixer.music.pause()
 
     def draw_special_effects(self, game_identifier, rect):
+        """LEGACY HOVER EFFECTS: Maintained for backwards compatibility"""
         self.animation_ticks += 1
         t = self.animation_ticks
 
@@ -401,6 +419,7 @@ class ArcadeLauncher:
                 current_w += 20; current_h += 10
                 current_x -= 10; current_y -= 5
 
+                # Keep physical jiggle for legacy games
                 if "tetris" in game_identifier:
                     current_x += math.sin(self.animation_ticks * 0.1) * 12
                 if "pong" in game_identifier:
@@ -422,7 +441,19 @@ class ArcadeLauncher:
             
             if is_focused:
                 pygame.draw.rect(screen, NEON_CYAN, card_rect, width=2, border_radius=8)
-                self.draw_special_effects(game_identifier, card_rect)
+                
+                # --- CRASH-PROOF DECOUPLED EFFECT EXECUTION ---
+                if game.get("effect_func"):
+                    try:
+                        game["effect_func"](screen, card_rect, self.animation_ticks)
+                    except Exception as e:
+                        print(f"Effect crash suppressed in {game['id']}: {e}")
+                        self.draw_special_effects(game_identifier, card_rect)
+                    finally:
+                        # CRITICAL: Always release the clip masking to prevent scroll overlapping!
+                        screen.set_clip(None)
+                else:
+                    self.draw_special_effects(game_identifier, card_rect)
             
             title_surf = FONT_SUB.render(game["title"], True, NEON_CYAN if is_focused else TEXT_MAIN)
             screen.blit(title_surf, (current_x + 20, current_y + (20 if is_focused else 15)))
@@ -554,7 +585,6 @@ class ArcadeLauncher:
                         if self.view_state == "TRACKS":
                             for i, track in enumerate(self.tracks):
                                 y_pos = 165 + i * 70 + self.scroll_y
-                                # Expanded hitbox for the volume slider to capture clicks reliably
                                 vol_rect = pygame.Rect(WIDTH - 360, y_pos + 5, 170, 50)
                                 if vol_rect.collidepoint(event.pos):
                                     self.is_dragging_volume = True
@@ -583,7 +613,7 @@ class ArcadeLauncher:
                     if event.button == 1:
                         if getattr(self, 'is_dragging_volume', False):
                             self.is_dragging_volume = False
-                            continue # Prevent the row-click logic from misfiring after volume adj
+                            continue 
                             
                         self.is_dragging = False
                         mx, my = event.pos
