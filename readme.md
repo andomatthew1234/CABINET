@@ -13,6 +13,7 @@ https://andomatthew1234.github.io/CABINET/
 * **StreetFight** Classic street fighter with pro physics. Fight AI with special moves.
 * **Tetris** Classic retro block game - test your block placing!
 * **Water Sort** Sort the bottles. Randomly generated, infinite levels, how many can you get through?
+* **Pong**
 * **Pong** A retro game 'pong' where you essentially play ping pong with arrow keys. It comes with SO MANY LEVELS, including:
     * **🏓 BitGame** Premium feel, classic functionality.
     * **👾 Classic** A more 'classic' theme.

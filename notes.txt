@@ -1,0 +1,7 @@
+What if we created a /installed_games/ folder hosted on Github, and on the launcher you can download these games with one click?
+Pipeline I am thinking of:
+USER PRESSES 'GAMES STORE IN APP'
+|
+App fetches all the games from the GH Repository.
+ Would this be possible - if so, generate a planning breif for an AI agent to be explained to.
+GH repos: github.com/andomatthew1234/PRINTPATH
