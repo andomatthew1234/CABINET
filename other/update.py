@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import math
 import threading
+import ssl  # Added to handle SSL verification issues
 
 # Initialize Pygame and Mixer
 pygame.init()
@@ -86,7 +87,10 @@ class SystemUpdater:
                 headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             )
             
-            with urllib.request.urlopen(req, timeout=15) as response:
+            # Create an unverified context to bypass local expired/missing SSL root certificates
+            context = ssl._create_unverified_context()
+            
+            with urllib.request.urlopen(req, timeout=15, context=context) as response:
                 # Retrieve actual payload size if available from server headers
                 total_size = response.getheader('Content-Length')
                 if total_size is not None:

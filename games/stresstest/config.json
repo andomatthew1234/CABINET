@@ -1,0 +1,5 @@
+{
+    "title": "Hardware Stress Test",
+    "description": "MAXIMUM LOAD. Spawns parallel processes across all logical CPU cores. WARNING: EXTREME HEAT.",
+    "high_score": 0
+}

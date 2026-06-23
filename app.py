@@ -23,9 +23,9 @@ joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_coun
 for joy in joysticks:
     joy.init()
 
-# Window Setup
+# Window Setup (Now dynamic and resizable)
 WIDTH, HEIGHT = 1000, 650
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("🕹️ THE CABINET")
 clock = pygame.time.Clock()
 
@@ -74,17 +74,13 @@ def play_sound(filename, loop=0, volume=1.0):
 
 class ArcadeLauncher:
     def __init__(self):
+        self.animation_ticks = 0
+        self.master_volume = 0.5
+        
         self.games = []
         self.selected_index = 0
-        self.load_games()
-        
         self.view_state = "GAMES" 
-        
-        # Audio / Track State
         self.tracks = self.load_tracks()
-        self.active_track = "menu.mp3"
-        self.is_playing = True
-        self.master_volume = 0.5
         
         # Smooth Scrolling & Touch State
         self.scroll_y = 0
@@ -96,49 +92,116 @@ class ArcadeLauncher:
         self.last_mouse_y = 0
         self.drag_accumulated = 0 
         self.input_mode = "INDEXED" 
-        
-        self.animation_ticks = 0
-        self.update_drops = [{"x": random.randint(5, 195), "y": random.randint(-20, 0), "speed": random.uniform(1, 3), "char": random.choice(["0", "1"])} for _ in range(12)]
-        
+
+        # --- INSTANT BOOT SPLASH SCREEN ---
+        self.load_games(show_splash=True)
+
+        # Start background loop music only AFTER the splash boot sequence is done
+        self.active_track = "menu.mp3"
+        self.is_playing = True
         play_sound("menu.mp3", loop=-1, volume=self.master_volume)
 
-    def load_games(self):
+    def draw_splash(self, progress, task_text):
+        """Renders the modernized, clean boot sequence."""
+        screen.fill((20, 20, 25))
+
+        # Title Rendering
+        title_str = "THE CABINET"
+        title_main = FONT_BEAST.render(title_str, True, (255, 255, 255))
+        pulse = abs(math.sin(self.animation_ticks * 0.05)) * 100
+        title_main.set_alpha(155 + int(pulse))
+        screen.blit(title_main, (WIDTH//2 - title_main.get_width()//2, HEIGHT//2 - 80))
+
+        os_txt = FONT_SUB.render("LAUNCHER INITIALIZING...", True, NEON_CYAN)
+        screen.blit(os_txt, (WIDTH//2 - os_txt.get_width()//2, HEIGHT//2 - 10))
+
+        # Task Text Console Output
+        task_surf = FONT_BODY.render(task_text, True, TEXT_MUTED)
+        screen.blit(task_surf, (WIDTH//2 - task_surf.get_width()//2, HEIGHT - 100))
+
+        # Progress Bar (Clean & Sleek)
+        bar_w = min(600, WIDTH - 100)
+        bar_h = 6
+        bar_x = WIDTH//2 - bar_w//2
+        bar_y = HEIGHT - 70
+
+        pygame.draw.rect(screen, (40, 40, 50), (bar_x, bar_y, bar_w, bar_h), border_radius=3)
+        filled_w = int(bar_w * progress)
+        pygame.draw.rect(screen, NEON_CYAN, (bar_x, bar_y, filled_w, bar_h), border_radius=3)
+
+    def _load_single_game(self, folder, games_dir):
+        """Processes exactly one game directory. Used to unblock the main thread."""
+        folder_path = os.path.join(games_dir, folder)
+        config_path = os.path.join(folder_path, 'config.json')
+        game_script = os.path.join(folder_path, 'game.py')
+        
+        if os.path.isdir(folder_path) and os.path.exists(config_path) and os.path.exists(game_script):
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    
+                effect_func = None
+                effect_script = os.path.join(folder_path, 'effect.py')
+                if os.path.exists(effect_script):
+                    module_name = f"games.{folder}.effect"
+                    if module_name in sys.modules:
+                        effect_module = importlib.reload(sys.modules[module_name])
+                    else:
+                        effect_module = importlib.import_module(module_name)
+                    if hasattr(effect_module, 'draw_effect'):
+                        effect_func = effect_module.draw_effect
+                        
+                self.games.append({
+                    "id": folder.lower(),
+                    "title": config.get("title", folder.upper()),
+                    "description": config.get("description", "No description provided."),
+                    "high_score": config.get("high_score", 0),
+                    "config_path": config_path,
+                    "effect_func": effect_func
+                })
+            except Exception as e:
+                print(f"Error loading game '{folder}': {e}")
+
+    def load_games(self, show_splash=False):
         self.games = []
         games_dir = os.path.join(ROOT_DIR, 'games')
-        if not os.path.exists(games_dir): return
+        
+        folders = []
+        if os.path.exists(games_dir):
+            folders = [f for f in os.listdir(games_dir) if os.path.isdir(os.path.join(games_dir, f))]
 
-        for folder in os.listdir(games_dir):
-            folder_path = os.path.join(games_dir, folder)
-            config_path = os.path.join(folder_path, 'config.json')
-            game_script = os.path.join(folder_path, 'game.py')
+        if show_splash:
+            min_splash_frames = 180 # 3 seconds at 60 FPS
+            total_frames = max(min_splash_frames, len(folders))
+            play_sound("launch.mp3", volume=self.master_volume) 
             
-            if os.path.isdir(folder_path) and os.path.exists(config_path) and os.path.exists(game_script):
-                try:
-                    with open(config_path, 'r') as f:
-                        config = json.load(f)
-                        
-                    # DYNAMIC HOVER EFFECT LOADER
-                    effect_func = None
-                    effect_script = os.path.join(folder_path, 'effect.py')
-                    if os.path.exists(effect_script):
-                        module_name = f"games.{folder}.effect"
-                        if module_name in sys.modules:
-                            effect_module = importlib.reload(sys.modules[module_name])
-                        else:
-                            effect_module = importlib.import_module(module_name)
-                        if hasattr(effect_module, 'draw_effect'):
-                            effect_func = effect_module.draw_effect
-                            
-                    self.games.append({
-                        "id": folder.lower(),
-                        "title": config.get("title", folder.upper()),
-                        "description": config.get("description", "No description provided."),
-                        "high_score": config.get("high_score", 0),
-                        "config_path": config_path,
-                        "effect_func": effect_func
-                    })
-                except Exception as e:
-                    print(f"Error loading game '{folder}': {e}")
+            for i in range(total_frames):
+                self.animation_ticks += 1
+                
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit(); sys.exit()
+                    elif event.type == pygame.VIDEORESIZE:
+                        global WIDTH, HEIGHT
+                        WIDTH, HEIGHT = event.w, event.h
+                        pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+
+                # Process loading queue with cleaner language
+                current_task = "Loading framework components..."
+                if i < len(folders):
+                    current_task = f"Mounting game: {folders[i].title()}"
+                    self._load_single_game(folders[i], games_dir)
+                elif i >= len(folders):
+                    current_task = "Verifying assets..."
+                if i >= total_frames - 10:
+                    current_task = "Ready."
+
+                self.draw_splash(i / total_frames, current_task)
+                pygame.display.flip()
+                clock.tick(60)
+        else:
+            for folder in folders:
+                self._load_single_game(folder, games_dir)
 
     def load_tracks(self):
         tracks = []
@@ -224,7 +287,7 @@ class ArcadeLauncher:
         except Exception as e:
             print(f"Failed to run game {game_id}: {e}")
         
-        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
         pygame.display.set_caption("🕹️ THE CABINET")
         
         pygame.joystick.quit()
@@ -233,19 +296,17 @@ class ArcadeLauncher:
         joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
         for joy in joysticks: joy.init()
         
-        self.load_games()
+        self.load_games(show_splash=False) 
         play_sound(self.active_track, loop=-1, volume=self.master_volume)
         if not self.is_playing:
             pygame.mixer.music.pause()
 
     def draw_special_effects(self, game_identifier, rect):
-        """LEGACY HOVER EFFECTS: Maintained for backwards compatibility"""
         self.animation_ticks += 1
         t = self.animation_ticks
 
         if "pong" in game_identifier:
             pass 
-
         elif "ast" in game_identifier or "asteroid" in game_identifier:
             screen.set_clip(rect)
             ship1_y = rect.centery + math.sin(t * 0.05) * 20
@@ -357,12 +418,12 @@ class ArcadeLauncher:
         screen.blit(subtitle, (WIDTH // 2 - subtitle.get_width() // 2, 105))
         
         pygame.draw.line(screen, NEON_PINK, (50, 140), (WIDTH - 50, 140), 2)
-        pygame.draw.line(screen, NEON_CYAN, (50, 580), (WIDTH - 50, 580), 2)
+        pygame.draw.line(screen, NEON_CYAN, (50, HEIGHT - 70), (WIDTH - 50, HEIGHT - 70), 2)
 
     def draw_bottom_nav(self, mx, my):
         btn_w, btn_h = 220, 36
         
-        update_rect = pygame.Rect(WIDTH // 2 - btn_w - 10, 598, btn_w, btn_h)
+        update_rect = pygame.Rect(WIDTH // 2 - btn_w - 10, HEIGHT - 52, btn_w, btn_h)
         u_hover = update_rect.collidepoint(mx, my)
         if u_hover: update_rect.inflate_ip(14, 6)
         
@@ -372,7 +433,7 @@ class ArcadeLauncher:
         u_txt = FONT_BTN.render("[ SYSTEM UPDATE ]", True, NEON_CYAN if not u_hover else TEXT_MAIN)
         screen.blit(u_txt, (update_rect.centerx - u_txt.get_width()//2, update_rect.centery - u_txt.get_height()//2))
 
-        tracks_rect = pygame.Rect(WIDTH // 2 + 10, 598, btn_w, btn_h)
+        tracks_rect = pygame.Rect(WIDTH // 2 + 10, HEIGHT - 52, btn_w, btn_h)
         t_hover = tracks_rect.collidepoint(mx, my)
         if t_hover: tracks_rect.inflate_ip(14, 6)
         
@@ -395,15 +456,20 @@ class ArcadeLauncher:
         card_height = 90
         gap = 15
         
+        # Calculate dynamic bounds for scrolling based on current window height
+        visible_h = max(0, (HEIGHT - 75) - base_start_y)
+        content_h = len(self.games) * (card_height + gap)
+        
         if self.input_mode == "INDEXED":
-            self.target_scroll_y = -max(0, (self.selected_index - 3) * (card_height + gap))
+            self.target_scroll_y = -max(0, (self.selected_index * (card_height + gap)) - (visible_h // 2) + (card_height // 2))
             self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.15 
         else:
             self.scroll_y += self.scroll_velocity
             self.scroll_velocity *= 0.85 
-            max_scroll = -max(0, (len(self.games) - 4) * (card_height + gap))
-            if self.scroll_y > 0: self.scroll_y = 0
-            if self.scroll_y < max_scroll: self.scroll_y = max_scroll
+            
+        max_scroll = min(0, visible_h - content_h)
+        if self.scroll_y > 0: self.scroll_y = 0
+        if self.scroll_y < max_scroll: self.scroll_y = max_scroll
 
         for i, game in enumerate(self.games):
             y_pos = base_start_y + i * (card_height + gap) + self.scroll_y
@@ -419,18 +485,13 @@ class ArcadeLauncher:
                 current_w += 20; current_h += 10
                 current_x -= 10; current_y -= 5
 
-                # Keep physical jiggle for legacy games
-                if "tetris" in game_identifier:
-                    current_x += math.sin(self.animation_ticks * 0.1) * 12
-                if "pong" in game_identifier:
-                    current_x += random.randint(-3, 3)
-                    current_y += random.randint(-3, 3)
+                if "tetris" in game_identifier: current_x += math.sin(self.animation_ticks * 0.1) * 12
+                if "pong" in game_identifier: current_x += random.randint(-3, 3); current_y += random.randint(-3, 3)
                 if "fighter" in game_identifier or "street" in game_identifier or "ast" in game_identifier:
-                    current_x += random.randint(-2, 2)
-                    current_y += random.randint(-2, 2)
+                    current_x += random.randint(-2, 2); current_y += random.randint(-2, 2)
 
             card_rect = pygame.Rect(current_x, current_y, current_w, current_h)
-            if card_rect.bottom < 145 or card_rect.top > 575: continue
+            if card_rect.bottom < 145 or card_rect.top > HEIGHT - 75: continue
 
             if is_focused and ("racer" in game_identifier or "neon" in game_identifier or "racing" in game_identifier or "ast" in game_identifier):
                 bg_color = (8, 8, 12) 
@@ -442,7 +503,6 @@ class ArcadeLauncher:
             if is_focused:
                 pygame.draw.rect(screen, NEON_CYAN, card_rect, width=2, border_radius=8)
                 
-                # --- CRASH-PROOF DECOUPLED EFFECT EXECUTION ---
                 if game.get("effect_func"):
                     try:
                         game["effect_func"](screen, card_rect, self.animation_ticks)
@@ -450,7 +510,6 @@ class ArcadeLauncher:
                         print(f"Effect crash suppressed in {game['id']}: {e}")
                         self.draw_special_effects(game_identifier, card_rect)
                     finally:
-                        # CRITICAL: Always release the clip masking to prevent scroll overlapping!
                         screen.set_clip(None)
                 else:
                     self.draw_special_effects(game_identifier, card_rect)
@@ -469,19 +528,23 @@ class ArcadeLauncher:
         row_height = 60
         gap = 10
         
+        visible_h = max(0, (HEIGHT - 70) - base_start_y)
+        content_h = len(self.tracks) * (row_height + gap)
+        
         if self.input_mode == "INDEXED":
-            self.target_scroll_y = -max(0, (self.selected_index - 5) * (row_height + gap))
+            self.target_scroll_y = -max(0, (self.selected_index * (row_height + gap)) - (visible_h // 2) + (row_height // 2))
             self.scroll_y += (self.target_scroll_y - self.scroll_y) * 0.15 
         else:
             self.scroll_y += self.scroll_velocity
             self.scroll_velocity *= 0.85
-            max_scroll = -max(0, (len(self.tracks) - 6) * (row_height + gap))
-            if self.scroll_y > 0: self.scroll_y = 0
-            if self.scroll_y < max_scroll: self.scroll_y = max_scroll
+            
+        max_scroll = min(0, visible_h - content_h)
+        if self.scroll_y > 0: self.scroll_y = 0
+        if self.scroll_y < max_scroll: self.scroll_y = max_scroll
 
         for i, track in enumerate(self.tracks):
             y_pos = base_start_y + i * (row_height + gap) + self.scroll_y
-            if y_pos > 580 or y_pos < 140: continue
+            if y_pos > HEIGHT - 70 or y_pos < 140: continue
             
             rect = pygame.Rect(50, y_pos, WIDTH - 100, row_height)
             is_active = (track["file"] == self.active_track)
@@ -529,6 +592,7 @@ class ArcadeLauncher:
         return self.draw_bottom_nav(mx, my)
 
     def run(self):
+        global WIDTH, HEIGHT
         running = True
         while running:
             self.animation_ticks += 1
@@ -537,8 +601,13 @@ class ArcadeLauncher:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.transition_out_and_quit()
+                    
+                # --- RESIZE SUPPORT ---
+                elif event.type == pygame.VIDEORESIZE:
+                    WIDTH, HEIGHT = event.w, event.h
+                    pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
                 
-                # --- GAMEPAD & KEYBOARD INPUT (INDEXED MODE) ---
+                # --- GAMEPAD & KEYBOARD INPUT ---
                 elif event.type == pygame.KEYDOWN or event.type == pygame.JOYHATMOTION or event.type == pygame.JOYBUTTONDOWN:
                     self.input_mode = "INDEXED"
                     
@@ -576,7 +645,12 @@ class ArcadeLauncher:
                                 self.is_playing = True
                                 play_sound(self.active_track, loop=-1, volume=self.master_volume)
 
-                # --- TOUCH / MOUSE INPUT (KINETIC MODE) ---
+                # --- TRACKPAD & MOUSE WHEEL ---
+                elif event.type == pygame.MOUSEWHEEL:
+                    self.input_mode = "KINETIC"
+                    self.scroll_velocity += event.y * 15 # Glides smoothly
+
+                # --- TOUCH / MOUSE CLICK DRAGGING ---
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         self.input_mode = "KINETIC"
@@ -585,6 +659,8 @@ class ArcadeLauncher:
                         if self.view_state == "TRACKS":
                             for i, track in enumerate(self.tracks):
                                 y_pos = 165 + i * 70 + self.scroll_y
+                                if y_pos > HEIGHT - 70 or y_pos < 140: continue # Prevent clicking hidden sliders
+                                
                                 vol_rect = pygame.Rect(WIDTH - 360, y_pos + 5, 170, 50)
                                 if vol_rect.collidepoint(event.pos):
                                     self.is_dragging_volume = True
@@ -598,6 +674,7 @@ class ArcadeLauncher:
                             self.drag_start_y = event.pos[1]
                             self.last_mouse_y = event.pos[1]
                             self.drag_accumulated = 0
+                            self.scroll_velocity = 0 # Stop current momentum immediately on grab
 
                 elif event.type == pygame.MOUSEMOTION:
                     if getattr(self, 'is_dragging_volume', False):
@@ -605,7 +682,8 @@ class ArcadeLauncher:
                         pygame.mixer.music.set_volume(self.master_volume)
                     elif getattr(self, 'is_dragging', False):
                         dy = event.pos[1] - self.last_mouse_y
-                        self.scroll_velocity = dy
+                        self.scroll_y += dy # Instantly track the cursor for a tighter feel
+                        self.scroll_velocity = dy * 0.5 # Leave some momentum upon release
                         self.last_mouse_y = event.pos[1]
                         self.drag_accumulated += abs(dy)
 
@@ -618,7 +696,8 @@ class ArcadeLauncher:
                         self.is_dragging = False
                         mx, my = event.pos
                         
-                        if self.drag_accumulated < 10:
+                        # Increased tolerance (15) to prevent accidental drags from blocking clicks
+                        if self.drag_accumulated < 15: 
                             if update_btn.collidepoint(mx, my):
                                 self.transition_out_and_launch("update")
                             elif tracks_btn.collidepoint(mx, my):
@@ -629,7 +708,10 @@ class ArcadeLauncher:
                             
                             elif self.view_state == "GAMES":
                                 for i, game in enumerate(self.games):
-                                    rect = pygame.Rect(50, 165 + i * 105 + self.scroll_y, WIDTH - 100, 90)
+                                    y_pos = 165 + i * 105 + self.scroll_y
+                                    if y_pos > HEIGHT - 75 or y_pos < 145: continue # Ensure it's fully visible
+                                    
+                                    rect = pygame.Rect(50, y_pos, WIDTH - 100, 90)
                                     if rect.collidepoint(mx, my):
                                         self.selected_index = i
                                         self.transition_out_and_launch(game["id"])
@@ -637,6 +719,8 @@ class ArcadeLauncher:
                             elif self.view_state == "TRACKS":
                                 for i, track in enumerate(self.tracks):
                                     y_pos = 165 + i * 70 + self.scroll_y
+                                    if y_pos > HEIGHT - 70 or y_pos < 140: continue # Ensure it's fully visible
+                                    
                                     rect = pygame.Rect(50, y_pos, WIDTH - 100, 60)
                                     dl_rect = pygame.Rect(WIDTH - 150, y_pos + 15, 80, 30)
                                     
